@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 
-use crate::cli::commands::{init, login, logout, patch, release, whoami};
+use crate::{cli::commands::{init, login, logout, patch, release, whoami}, ui::error};
 
 
 #[derive(Debug, Parser)]
@@ -88,13 +88,31 @@ impl Cli {
 
         match cli.commands {
             Command::Login { session } => {
-                login::run(session).await?;
+                match login::run(session,cli.server_url).await{
+                    Err(e) => {
+                        error(&format!("Login failed: {}", e));
+                        std::process::exit(1);
+                    }
+                    _ => {}
+                }
             }
             Command::Logout => {
-                logout::run().await?;
+                match logout::run(cli.server_url).await{
+                    Err(e) => {
+                        error(&format!("Logout failed: {}", e));
+                        std::process::exit(1);
+                    }
+                    _ => {}
+                }
             }
             Command::Whoami => {
-                whoami::run().await?;
+                match whoami::run(cli.server_url).await{
+                    Err(e) => {
+                        error(&format!("Whoami failed: {}", e));
+                        std::process::exit(1);
+                    }
+                    _ => {}
+                }
             }
             Command::Init => {
                 init::run().await?;
