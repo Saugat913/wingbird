@@ -1,7 +1,9 @@
 use reqwest::{Client, ClientBuilder, Url};
 use serde::Deserialize;
 
-use crate::{api::{User, WhoamiResponse}, storage};
+use crate::{
+    api::{User, WhoamiResponse}, storage, ui::error,
+};
 
 pub struct ApiClient {
     client: Client,
@@ -29,7 +31,7 @@ impl ApiClient {
         if !resp.status().is_success() {
             anyhow::bail!("Session expired or invalid. Please login again via 'wingbird login'.");
         }
-        
+
         let token_response = resp.json::<TokenResponse>().await?;
 
         Ok(Self {
@@ -39,9 +41,9 @@ impl ApiClient {
         })
     }
 
-    pub async fn from_storage(server_url: String)->anyhow::Result<Self>{
+    pub async fn from_storage(server_url: String) -> anyhow::Result<Self> {
         let token = storage::get_token(&server_url).unwrap_or(None);
-        let api_client =match token {
+        let api_client = match token {
             Some(token) => Self::new(&token, Url::parse(&server_url)?).await,
             None => anyhow::bail!("No token found. Please login again via 'wingbird login'."),
         }?;
@@ -60,5 +62,21 @@ impl ApiClient {
             .await?;
         let response = response.json::<WhoamiResponse>().await?;
         Ok(response.user)
+    }
+
+    pub async fn logout(&self) -> anyhow::Result<()> {
+        let response = self
+            .client
+            .post(self.server_url.join("/api/auth/sign-out")?)
+            .header("Content-Type", "application/json")
+            .body("{}")
+            .bearer_auth(&self.token)
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            error(&format!("Logout failed: {}", response.text().await?));
+            anyhow::bail!("Logout failed");
+        }
+        Ok(())
     }
 }
