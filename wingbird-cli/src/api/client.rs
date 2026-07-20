@@ -40,7 +40,7 @@ impl ApiClient {
     }
 
     pub async fn from_storage(server_url: String)->anyhow::Result<Self>{
-        let token = storage::get_token(&server_url)?;
+        let token = storage::get_token(&server_url).unwrap_or(None);
         let api_client =match token {
             Some(token) => Self::new(&token, Url::parse(&server_url)?).await,
             None => anyhow::bail!("No token found. Please login again via 'wingbird login'."),
