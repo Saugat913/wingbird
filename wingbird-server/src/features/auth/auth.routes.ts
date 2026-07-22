@@ -12,4 +12,4 @@ authRouter.on(["GET", "POST"], "/*", async (c) => {
 });
 
 
-export { authRouter };
+export default authRouter ;
