@@ -5,6 +5,7 @@ mod api;
 mod ui;
 mod storage;
 mod utils;
+mod config;
 
 #[tokio::main]
 async fn main()->anyhow::Result<()> {
