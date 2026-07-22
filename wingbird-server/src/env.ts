@@ -9,11 +9,11 @@ export type Bindings = {
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   WINGBIRD_FRONTEND_URL: string;
-  B2_KEY_ID: string;
-  B2_APP_KEY: string;
-  B2_BUCKET: string;
-  B2_ENDPOINT: string;
-  B2_REGION: string;
+  S3_ACCESS_KEY_ID: string;
+  S3_ACCESS_KEY: string;
+  S3_BUCKET: string;
+  S3_ENDPOINT: string;
+  S3_REGION: string;
 };
 
 export type Variables = {
