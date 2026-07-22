@@ -5,6 +5,7 @@ import { dbMiddleware } from "./middleware/db";
 import { requireAuth } from "./middleware/auth";
 import authRouter from "./features/auth/auth.routes";
 import uploadRouter from "./features/upload/upload.routes";
+import appsRouter from "./features/apps/apps.routes";
 
 const app = new Hono<AppEnv>();
 
@@ -15,6 +16,7 @@ app.use("*", dbMiddleware);
 app.route("/", ui);
 app.route("/api/auth", authRouter);
 app.route("/api/uploads", uploadRouter);
+app.route("/api/apps", appsRouter);
 
 app.get("/api/health", (c) => {
   return c.json({ status: "ok" });
