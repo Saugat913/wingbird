@@ -1,8 +1,14 @@
-use reqwest::{Client, ClientBuilder, Url};
+use std::path::Path;
+
+use anyhow::anyhow;
+use futures_util::StreamExt;
+use reqwest::{ Client, ClientBuilder, Url, header};
 use serde::Deserialize;
+use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
-    api::{User, WhoamiResponse}, storage, ui::error,
+    api::{UploadResponse, User, WhoamiResponse, upload::UploadRequest},
+    storage,
 };
 
 pub struct ApiClient {
@@ -74,9 +80,79 @@ impl ApiClient {
             .send()
             .await?;
         if !response.status().is_success() {
-            error(&format!("Logout failed: {}", response.text().await?));
             anyhow::bail!("Logout failed");
         }
+        Ok(())
+    }
+
+    async fn request_file_upload(
+        &self,
+        file_name: &str,
+        file_type: &str,
+        file_size: u64,
+    ) -> anyhow::Result<(String, String)> {
+        let response = self
+            .client
+            .post(self.server_url.join("/api/uploads")?)
+            .bearer_auth(&self.token)
+            .json(&UploadRequest {
+                file_name: file_name.into(),
+                file_type: file_type.into(),
+                file_size,
+            })
+            .send()
+            .await?
+            .error_for_status()?;
+
+        let UploadResponse { key, url } = response.json().await?;
+        Ok((key, url))
+    }
+
+    pub async fn upload_file(
+        &self,
+        file_path: &str,
+        file_type: &str,
+    ) -> anyhow::Result<(String, String)> {
+        let file = File::open(file_path).await?;
+        let file_size = file.metadata().await?.len();
+
+        let file_name = Path::new(file_path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| anyhow!("Invalid file name"))?;
+
+        let (key, url) = self
+            .request_file_upload(file_name, file_type, file_size)
+            .await?;
+
+        self.client
+            .put(&url)
+            .header(header::CONTENT_TYPE, file_type)
+            .header(header::CONTENT_LENGTH, file_size)
+            .body(file)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok((key, url))
+    }
+
+    pub async fn download_file(&self, file_key: &str, output_path: &str) -> anyhow::Result<()> {
+        let response = self
+            .client
+            .get(self.server_url.join(&format!("/api/uploads/{file_key}"))?)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        let mut output = File::create(output_path).await?;
+        let mut stream = response.bytes_stream();
+
+        while let Some(chunk) = stream.next().await {
+            output.write_all(&chunk?).await?;
+        }
+
+        output.flush().await?;
         Ok(())
     }
 }
