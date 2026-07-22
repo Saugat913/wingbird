@@ -7,8 +7,7 @@ use serde::Deserialize;
 use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
-    api::{UploadResponse, User, WhoamiResponse, upload::UploadRequest},
-    storage,
+    api::{CreateAppRequest, CreateAppResponse, UploadResponse, User, WhoamiResponse, upload::UploadRequest}, storage,
 };
 
 pub struct ApiClient {
@@ -155,4 +154,16 @@ impl ApiClient {
         output.flush().await?;
         Ok(())
     }
+
+    pub async fn create_app(&self, name: &str,) -> anyhow::Result<CreateAppResponse> {
+    let response = self.client
+        .post(self.server_url.join("/api/apps")?)
+        .header("Content-Type", "application/json")
+        .json(&CreateAppRequest { name: name.to_string() })
+        .bearer_auth(&self.token)
+        .send()
+        .await?;
+    
+    Ok(response.error_for_status()?.json::<CreateAppResponse>().await?)
+}
 }

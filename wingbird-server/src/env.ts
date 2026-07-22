@@ -17,7 +17,7 @@ export type Bindings = {
 };
 
 export type Variables = {
-  db: DrizzleD1Database<typeof schema>;
+  db: DB;
   user: {
     id: string;
     name: string;
@@ -30,3 +30,5 @@ export type AppEnv = {
   Bindings: Bindings;
   Variables: Variables;
 };
+
+export type DB = DrizzleD1Database<typeof schema>;
