@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::anyhow;
 use futures_util::StreamExt;
-use reqwest::{ Client, ClientBuilder, Url, header};
+use reqwest::{Client, ClientBuilder, Url, header};
 use serde::Deserialize;
 use tokio::{fs::File, io::AsyncWriteExt};
 
@@ -104,6 +104,12 @@ impl ApiClient {
             .await?
             .error_for_status()?;
 
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Upload request failed ({}): {}", status, body);
+        }
+
         let UploadResponse { key, url } = response.json().await?;
         Ok((key, url))
     }
@@ -125,7 +131,8 @@ impl ApiClient {
             .request_file_upload(file_name, file_type, file_size)
             .await?;
 
-        self.client
+        let response = self
+            .client
             .put(&url)
             .header(header::CONTENT_TYPE, file_type)
             .header(header::CONTENT_LENGTH, file_size)
@@ -134,6 +141,12 @@ impl ApiClient {
             .await?
             .error_for_status()?;
 
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("S3 upload failed ({}): {}", status, body);
+        }
+
         Ok((key, url))
     }
 
@@ -141,9 +154,16 @@ impl ApiClient {
         let response = self
             .client
             .get(self.server_url.join(&format!("/api/uploads/{file_key}"))?)
+            .bearer_auth(&self.token)
             .send()
             .await?
             .error_for_status()?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Download failed ({}): {}", status, body);
+        }
 
         let mut output = File::create(output_path).await?;
         let mut stream = response.bytes_stream();
@@ -153,6 +173,27 @@ impl ApiClient {
         }
 
         output.flush().await?;
+        Ok(())
+    }
+
+    pub async fn mark_upload_complete(&self, key: &str) -> anyhow::Result<()> {
+        let response = self
+            .client
+            .patch(
+                self.server_url
+                    .join(&format!("/api/uploads/{key}/complete"))?,
+            )
+            .bearer_auth(&self.token)
+            .timeout(std::time::Duration::from_secs(30))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Failed to complete upload ({}): {}", status, body);
+        }
+
         Ok(())
     }
 }
