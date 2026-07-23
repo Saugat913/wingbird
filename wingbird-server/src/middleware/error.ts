@@ -11,7 +11,11 @@ export class HttpError extends Error {
 }
 
 export const errorHandler = async (err: Error, c: Context) => {
-  console.error("Server error occurred:", err);
+ const method = c.req.method;
+    const path = c.req.path;
+    const userId = c.get("user")?.id ?? "anonymous";
+
+    console.error(`[${method} ${path}] [user=${userId}] Error:`, err.message);
 
   if (err instanceof HttpError) {
     return c.json({ error: err.message }, err.status as any);
