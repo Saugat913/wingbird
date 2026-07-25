@@ -149,6 +149,7 @@ uploadRouter.patch("/:key/complete", requireAuth, async (c) => {
 
     await db.update(upload).set({
         status: "completed",
+        updatedAt:new Date()
     }).where(eq(upload.id, key));
 
     return c.json({ message: "Upload completed" });
