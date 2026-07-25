@@ -13,6 +13,9 @@ impl Config {
     }
 
     pub fn load() -> Result<Self, anyhow::Error> {
+        if !Self::exists() {
+            anyhow::bail!("wingbird.yaml not found. Please run 'wingbird init' first.");
+        }
         let config = std::fs::read_to_string("wingbird.yaml")?;
         let config: Config = yaml_serde::from_str(&config)?;
         Ok(config)

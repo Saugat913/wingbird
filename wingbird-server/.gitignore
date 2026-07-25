@@ -33,4 +33,5 @@ lerna-debug.log*
 # misc
 .DS_Store
 
-./migrations
+migrations/
+/migrations/

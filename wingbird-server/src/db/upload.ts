@@ -1,5 +1,5 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { user } from "./schema";
+import { app } from "./apps";
 
 export const STATUS_VALUES=[
     'pending',
@@ -11,11 +11,12 @@ export type UploadStatus = (typeof STATUS_VALUES)[number];
 
 export const upload = sqliteTable("upload", {
     id: text("id").primaryKey(),
-    userId: text("user_id").notNull().references(() => user.id),
+    appId: text("app_id").notNull().references(() => app.id),
 
     fileName: text("file_name").notNull(),
     fileSize: integer("file_size").notNull(),
     fileType: text("file_type").notNull(),
+    fileHash: text("file_hash").notNull(),
 
     status: text("status").$type<UploadStatus>().notNull().default("pending"),
 
@@ -23,6 +24,6 @@ export const upload = sqliteTable("upload", {
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$default(() => new Date()),
 
 },(table)=>[
-    index("upload_user_id_idx").on(table.userId,user.id),
+    index("upload_app_id_idx").on(table.appId, app.id),
     index("upload_status_idx").on(table.status),
 ]);
