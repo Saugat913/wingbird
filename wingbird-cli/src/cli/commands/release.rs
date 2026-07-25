@@ -1,24 +1,33 @@
 use crate::{
-    api::ApiClient, ui::{error, info, link, success, wait}, utils,
+    api::ApiClient, config::Config, ui::{error, info, link, success, wait}, utils,
 };
 
 const APK_PATH: &str = "build/app/outputs/flutter-apk/app-release.apk";
 const APK_MIME: &str = "application/vnd.android.package-archive";
 
-pub async fn run(server_url: String, platform: String, channel: String) -> anyhow::Result<()> {
-   info("Building release APK...");
+pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
+    let config = Config::load()?;
+    let client = ApiClient::from_storage(config.server_url).await?;
+
+    info("Building release APK...");
     utils::run_command("flutter", &["build", "apk", "--release"])?;
     success("APK built successfully");
     link("Output", APK_PATH);
 
-    let client = ApiClient::from_storage(server_url).await?;
+    if !std::path::Path::new(APK_PATH).exists() {
+        anyhow::bail!("Release APK build output not found at '{}'. Ensure 'flutter build apk --release' completed successfully.", APK_PATH);
+    }
 
     let file_size = tokio::fs::metadata(APK_PATH).await?.len();
     let size_mb = file_size as f64 / (1024.0 * 1024.0);
     info(&format!("APK size: {:.1} MB", size_mb));
 
+    info("Computing file hash...");
+    let file_bytes = tokio::fs::read(APK_PATH).await?;
+    let file_hash = blake3::hash(&file_bytes).to_hex().to_string();
+
     wait("Requesting upload URL...");
-    let (key, _url) = client.upload_file(APK_PATH, APK_MIME).await?;
+    let (key, _url) = client.upload_file(APK_PATH, APK_MIME, &config.app_id, &file_hash).await?;
     success(&format!("Upload complete (key: {})", key));
 
     // Mark upload as completed on server

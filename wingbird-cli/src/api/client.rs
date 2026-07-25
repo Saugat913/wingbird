@@ -89,6 +89,8 @@ impl ApiClient {
         file_name: &str,
         file_type: &str,
         file_size: u64,
+        app_id: &str,
+        file_hash: &str,
     ) -> anyhow::Result<(String, String)> {
         let response = self
             .client
@@ -98,6 +100,8 @@ impl ApiClient {
                 file_name: file_name.into(),
                 file_type: file_type.into(),
                 file_size,
+                app_id: app_id.into(),
+                file_hash: file_hash.into(),
             })
             .send()
             .await?
@@ -117,6 +121,8 @@ impl ApiClient {
         &self,
         file_path: &str,
         file_type: &str,
+        app_id: &str,
+        file_hash: &str,
     ) -> anyhow::Result<(String, String)> {
         let file = File::open(file_path).await?;
         let file_size = file.metadata().await?.len();
@@ -127,7 +133,7 @@ impl ApiClient {
             .ok_or_else(|| anyhow!("Invalid file name"))?;
 
         let (key, url) = self
-            .request_file_upload(file_name, file_type, file_size)
+            .request_file_upload(file_name, file_type, file_size, app_id, file_hash)
             .await?;
 
         let response = self

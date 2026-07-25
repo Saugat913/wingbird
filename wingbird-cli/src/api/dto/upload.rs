@@ -1,9 +1,7 @@
-
-
 #[derive(Debug, serde::Deserialize)]
 pub struct UploadResponse {
     pub url: String,
-    pub key:String
+    pub key: String,
 }
 
 
@@ -13,4 +11,6 @@ pub struct UploadRequest {
     pub file_name: String,
     pub file_type: String,
     pub file_size: u64,
+    pub app_id: String,
+    pub file_hash: String,
 }
