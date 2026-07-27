@@ -118,7 +118,7 @@ impl Cli {
                 init::run(cli.server_url).await?;
             }
             Command::Release { platform, channel } => {
-                release::run(cli.server_url,platform.to_string(), channel.to_string()).await?;
+                release::run(platform.to_string(), channel.to_string()).await?;
             }
             Command::Patch { platform, channel } => {
                 patch::run(platform.to_string(), channel.to_string()).await?;
