@@ -18,12 +18,9 @@ export type Bindings = {
 
 export type Variables = {
   db: DB;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image?: string | null;
-  };
+  user: schema.User;
+  app: schema.App;
+  release:schema.Release;
 };
 
 export type AppEnv = {

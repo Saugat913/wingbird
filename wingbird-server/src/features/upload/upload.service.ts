@@ -64,6 +64,9 @@ class UploadService {
         return signedRequest.url;
     }
 
+    async deleteObject(key: string) {
+
+    }
     async headObject(key: string) {
         const targetUrl = this.getS3ObjectUrl(key);
         const signedRequest = await this.client.sign(
@@ -74,6 +77,20 @@ class UploadService {
             }
         );
         return await fetch(signedRequest);
+    }
+
+    async validateArtifact(key: string, file: { size: number, type: string }): Promise<boolean> {
+        const response = await this.headObject(key);
+        const contentLength = Number(response.headers.get("Content-Length"));
+        const contentType = response.headers.get("Content-Type");
+        const etag = response.headers.get("ETag");
+        if (contentLength !== file.size || contentType !== file.type) {
+            throw new Error('Artifact validation failed');
+        }
+        if (!response.ok) {
+            throw new Error('Artifact not found');
+        }
+        return response.ok;
     }
 }
 

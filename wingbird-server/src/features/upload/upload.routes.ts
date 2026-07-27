@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { AppEnv } from "../../env";
 import UploadService from "./upload.service";
 import { requireAuth } from "../../middleware/auth";
-import { upload, app } from "../../db/schema";
+import { uploadTable, appTable } from "../../db/schema";
 import { and, eq } from "drizzle-orm";
 import { HttpError } from "../../middleware/error";
 
@@ -60,8 +60,8 @@ uploadRouter.post("/", requireAuth, async (c) => {
 
     const appRecord = await db
         .select()
-        .from(app)
-        .where(and(eq(app.id, appId), eq(app.userId, user.id)))
+        .from(appTable)
+        .where(and(eq(appTable.id, appId), eq(appTable.userId, user.id)))
         .then((res) => res[0]);
 
     if (!appRecord) {
@@ -70,7 +70,7 @@ uploadRouter.post("/", requireAuth, async (c) => {
 
     const uploadId = crypto.randomUUID();
 
-    await db.insert(upload).values({
+    await db.insert(uploadTable).values({
         id: uploadId,
         appId,
         fileName: sanitizedFileName,
@@ -93,11 +93,11 @@ uploadRouter.get("/:key", requireAuth, async (c) => {
 
     const uploadRecord = await db
         .select({
-            upload: upload,
+            upload: uploadTable,
         })
-        .from(upload)
-        .innerJoin(app, eq(upload.appId, app.id))
-        .where(and(eq(upload.id, key), eq(app.userId, user.id)))
+        .from(uploadTable)
+        .innerJoin(appTable, eq(uploadTable.appId, appTable.id))
+        .where(and(eq(uploadTable.id, key), eq(appTable.userId, user.id)))
         .then((result) => result[0]?.upload);
 
     if (!uploadRecord) {
@@ -117,11 +117,11 @@ uploadRouter.patch("/:key/complete", requireAuth, async (c) => {
 
     const uploadRecord = await db
         .select({
-            upload: upload,
+            upload: uploadTable,
         })
-        .from(upload)
-        .innerJoin(app, eq(upload.appId, app.id))
-        .where(and(eq(upload.id, key), eq(app.userId, user.id)))
+        .from(uploadTable)
+        .innerJoin(appTable, eq(uploadTable.appId, appTable.id))
+        .where(and(eq(uploadTable.id, key), eq(appTable.userId, user.id)))
         .then((result) => result[0]?.upload);
 
     if (!uploadRecord) {
@@ -147,10 +147,10 @@ uploadRouter.patch("/:key/complete", requireAuth, async (c) => {
         }
     }
 
-    await db.update(upload).set({
+    await db.update(uploadTable).set({
         status: "completed",
         updatedAt:new Date()
-    }).where(eq(upload.id, key));
+    }).where(eq(uploadTable.id, key));
 
     return c.json({ message: "Upload completed" });
 });

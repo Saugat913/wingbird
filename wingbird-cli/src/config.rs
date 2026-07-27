@@ -37,7 +37,7 @@ impl Config {
 #[derive(Debug,Deserialize)]
 pub struct Pubspec{
     pub name:String,
-    pub version:Option<String>,
+    pub version:String,
     pub description:Option<String>
 }
 
