@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
-export const user = sqliteTable("user", {
+export const userTable = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
@@ -19,14 +19,14 @@ export const session = sqliteTable("session", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  userId: text("user_id").notNull().references(() => user.id),
+  userId: text("user_id").notNull().references(() => userTable.id),
 });
 
 export const account = sqliteTable("account", {
   id: text("id").primaryKey(),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
-  userId: text("user_id").notNull().references(() => user.id),
+  userId: text("user_id").notNull().references(() => userTable.id),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   idToken: text("id_token"),
@@ -56,21 +56,24 @@ export const jwks = sqliteTable("jwks", {
 });
 
 
-export const userRelations = relations(user, ({ many }) => ({
+export const userRelations = relations(userTable, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, {
+  user: one(userTable, {
     fields: [session.userId],
-    references: [user.id],
+    references: [userTable.id],
   }),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, {
+  user: one(userTable, {
     fields: [account.userId],
-    references: [user.id],
+    references: [userTable.id],
   }),
 }));
+
+
+export type User= typeof userTable.$inferSelect;

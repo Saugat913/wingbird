@@ -7,7 +7,7 @@ use serde::Deserialize;
 use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
-    api::{CreateAppRequest, CreateAppResponse, UploadResponse, User, WhoamiResponse, upload::UploadRequest}, storage,
+    api::{CreateAppRequest, CreateAppResponse, UploadRequest, UploadResponse, User, WhoamiResponse}, storage,
 };
 
 pub struct ApiClient {
