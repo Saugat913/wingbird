@@ -7,7 +7,7 @@ use serde::Deserialize;
 use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
-    api::{CreateAppRequest, CreateAppResponse, UploadRequest, UploadResponse, User, WhoamiResponse}, storage,
+    api::{CreateAppRequest, CreateAppResponse, CreateReleaseRequest, ReleaseResponse, UploadRequest, UploadResponse, User, WhoamiResponse}, storage,
 };
 
 pub struct ApiClient {
@@ -213,4 +213,23 @@ impl ApiClient {
 
         Ok(())
     }
+
+
+    pub async fn create_release(
+    &self,
+    app_id: &str,
+    req: &CreateReleaseRequest,
+) -> anyhow::Result<ReleaseResponse> {
+    let response = self
+        .client
+        .post(self.server_url.join(&format!("/api/apps/{app_id}/releases"))?)
+        .bearer_auth(&self.token)
+        .json(req)
+        .send()
+        .await?
+        .error_for_status()?;
+
+    let release_response = response.json::<ReleaseResponse>().await?;
+    Ok(release_response)
+}
 }
