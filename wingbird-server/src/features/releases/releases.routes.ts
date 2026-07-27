@@ -10,9 +10,9 @@ import { requireReleaseAccess } from "../../middleware/release-access";
 
 const releasesRouter= new Hono<AppEnv>();
 
-releasesRouter.use("*",requireAuth,requireAppAccess);
+releasesRouter.use("*",requireAuth);
 
-releasesRouter.get("/:appId/releases",async (c) => {
+releasesRouter.get("/:appId/releases",requireAppAccess,async (c) => {
 
     const app= c.var.app;
     const db=c.var.db;
@@ -23,7 +23,7 @@ releasesRouter.get("/:appId/releases",async (c) => {
 });
 
 
-releasesRouter.post("/:appId/releases",async (c) => {
+releasesRouter.post("/:appId/releases",requireAppAccess,async (c) => {
     const app= c.var.app;
     const db= c.var.db;
 
@@ -40,8 +40,7 @@ releasesRouter.post("/:appId/releases",async (c) => {
     }
 
 
-    const release= await db.insert(releaseTable).values({
-        id: crypto.randomUUID(),
+    const [release]= await db.insert(releaseTable).values({
         appId:app.id,
         artifactKey: upload_key,
         releaseVersion: release_version,
@@ -59,14 +58,14 @@ releasesRouter.post("/:appId/releases",async (c) => {
 
 
 const releasesStandaloneRouter= new Hono<AppEnv>();
-releasesStandaloneRouter.use("*",requireAuth,requireReleaseAccess);
+releasesStandaloneRouter.use("*",requireAuth);
 
-releasesStandaloneRouter.get("/:releaseId", async (c) => {
+releasesStandaloneRouter.get("/:releaseId", requireReleaseAccess,async (c) => {
     const release = c.var.release;
     return c.json({ release });
 });
 
-releasesStandaloneRouter.delete("/:releaseId", async (c) => {
+releasesStandaloneRouter.delete("/:releaseId", requireReleaseAccess, async (c) => {
     const release = c.var.release;
     const db = c.var.db;
     

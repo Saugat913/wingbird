@@ -10,7 +10,10 @@ export const initAuth = (env: AppEnv["Bindings"]) => {
   return betterAuth({
     database: drizzleAdapter(db, {
       provider: "sqlite",
-      schema: schema,
+      schema: {
+        ...schema,
+        user: schema.userTable,
+      },
     }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
