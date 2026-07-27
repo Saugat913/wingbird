@@ -5,11 +5,13 @@ class UploadService {
     private client: AwsClient;
     private endpoint: string;
     private bucket: string;
+    private expireSeconds: number;
 
     constructor(env: AppEnv["Bindings"]) {
         this.client = this.getS3Client(env);
         this.endpoint = env.S3_ENDPOINT;
         this.bucket = env.S3_BUCKET;
+        this.expireSeconds = env.S3_PRESIGNED_EXPIRE_SECONDS ? Number(env.S3_PRESIGNED_EXPIRE_SECONDS) : 900;
     }
 
 
@@ -31,12 +33,12 @@ class UploadService {
     async uploadFile(key: string, fileType: string, fileSize: number) {
 
         const targetUrl = this.getS3ObjectUrl(key);
-        targetUrl.searchParams.set('X-Amz-Expires', '900');
+        targetUrl.searchParams.set('X-Amz-Expires', this.expireSeconds.toString());
 
         const signedRequest = await this.client.sign(
             new Request(targetUrl.toString(), {
                 method: 'PUT',
-                headers: { 'Content-Type': fileType },
+                headers: { 'Content-Type': fileType, 'Content-Length': fileSize.toString() },
             }),
             {
                 method: 'PUT',
@@ -49,7 +51,7 @@ class UploadService {
 
     async getSignedUrl(key: string) {
         const targetUrl = this.getS3ObjectUrl(key);
-        targetUrl.searchParams.set('X-Amz-Expires', '900');
+        targetUrl.searchParams.set('X-Amz-Expires', this.expireSeconds.toString());
         const signedRequest = await this.client.sign(
             new Request(targetUrl.toString(), { method: 'GET' }),
             {
@@ -60,6 +62,35 @@ class UploadService {
 
 
         return signedRequest.url;
+    }
+
+    async deleteObject(key: string) {
+
+    }
+    async headObject(key: string) {
+        const targetUrl = this.getS3ObjectUrl(key);
+        const signedRequest = await this.client.sign(
+            new Request(targetUrl.toString(), { method: 'HEAD' }),
+            {
+                method: 'HEAD',
+                aws: { signQuery: true },
+            }
+        );
+        return await fetch(signedRequest);
+    }
+
+    async validateArtifact(key: string, file: { size: number, type: string }): Promise<boolean> {
+        const response = await this.headObject(key);
+        const contentLength = Number(response.headers.get("Content-Length"));
+        const contentType = response.headers.get("Content-Type");
+        const etag = response.headers.get("ETag");
+        if (contentLength !== file.size || contentType !== file.type) {
+            throw new Error('Artifact validation failed');
+        }
+        if (!response.ok) {
+            throw new Error('Artifact not found');
+        }
+        return response.ok;
     }
 }
 

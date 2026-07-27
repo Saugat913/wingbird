@@ -6,6 +6,7 @@ import { requireAuth } from "./middleware/auth";
 import authRouter from "./features/auth/auth.routes";
 import uploadRouter from "./features/upload/upload.routes";
 import appsRouter from "./features/apps/apps.routes";
+import { releasesRouter, releasesStandaloneRouter } from "./features/releases/releases.routes";
 
 const app = new Hono<AppEnv>();
 
@@ -17,6 +18,9 @@ app.route("/", ui);
 app.route("/api/auth", authRouter);
 app.route("/api/uploads", uploadRouter);
 app.route("/api/apps", appsRouter);
+
+app.route("/api/apps", releasesRouter);
+app.route("/api/releases", releasesStandaloneRouter);
 
 app.get("/api/health", (c) => {
   return c.json({ status: "ok" });

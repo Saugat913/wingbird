@@ -7,7 +7,11 @@ use serde::Deserialize;
 use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
-    api::{CreateAppRequest, CreateAppResponse, UploadResponse, User, WhoamiResponse, upload::UploadRequest}, storage,
+    api::{
+        CreateAppRequest, CreateAppResponse, CreateReleaseRequest, ReleaseResponse, UploadRequest,
+        UploadResponse, User, WhoamiResponse,
+    },
+    storage,
 };
 
 pub struct ApiClient {
@@ -89,6 +93,8 @@ impl ApiClient {
         file_name: &str,
         file_type: &str,
         file_size: u64,
+        app_id: &str,
+        file_hash: &str,
     ) -> anyhow::Result<(String, String)> {
         let response = self
             .client
@@ -98,6 +104,8 @@ impl ApiClient {
                 file_name: file_name.into(),
                 file_type: file_type.into(),
                 file_size,
+                app_id: app_id.into(),
+                file_hash: file_hash.into(),
             })
             .send()
             .await?
@@ -117,6 +125,8 @@ impl ApiClient {
         &self,
         file_path: &str,
         file_type: &str,
+        app_id: &str,
+        file_hash: &str,
     ) -> anyhow::Result<(String, String)> {
         let file = File::open(file_path).await?;
         let file_size = file.metadata().await?.len();
@@ -127,7 +137,7 @@ impl ApiClient {
             .ok_or_else(|| anyhow!("Invalid file name"))?;
 
         let (key, url) = self
-            .request_file_upload(file_name, file_type, file_size)
+            .request_file_upload(file_name, file_type, file_size, app_id, file_hash)
             .await?;
 
         let response = self
@@ -175,17 +185,23 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn create_app(&self, name: &str,) -> anyhow::Result<CreateAppResponse> {
-    let response = self.client
-        .post(self.server_url.join("/api/apps")?)
-        .header("Content-Type", "application/json")
-        .json(&CreateAppRequest { name: name.to_string() })
-        .bearer_auth(&self.token)
-        .send()
-        .await?;
-    
-    Ok(response.error_for_status()?.json::<CreateAppResponse>().await?)
-}
+    pub async fn create_app(&self, name: &str) -> anyhow::Result<CreateAppResponse> {
+        let response = self
+            .client
+            .post(self.server_url.join("/api/apps")?)
+            .header("Content-Type", "application/json")
+            .json(&CreateAppRequest {
+                name: name.to_string(),
+            })
+            .bearer_auth(&self.token)
+            .send()
+            .await?;
+
+        Ok(response
+            .error_for_status()?
+            .json::<CreateAppResponse>()
+            .await?)
+    }
 
     pub async fn mark_upload_complete(&self, key: &str) -> anyhow::Result<()> {
         let response = self
@@ -206,5 +222,26 @@ impl ApiClient {
         }
 
         Ok(())
+    }
+
+    pub async fn create_release(
+        &self,
+        app_id: &str,
+        req: &CreateReleaseRequest,
+    ) -> anyhow::Result<ReleaseResponse> {
+        let response = self
+            .client
+            .post(
+                self.server_url
+                    .join(&format!("/api/apps/{app_id}/releases"))?,
+            )
+            .bearer_auth(&self.token)
+            .json(req)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        let release_response = response.json::<ReleaseResponse>().await?;
+        Ok(release_response)
     }
 }

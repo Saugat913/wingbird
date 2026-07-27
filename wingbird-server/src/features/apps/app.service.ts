@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { app } from "../../db/schema";
+import { appTable } from "../../db/schema";
 import { DB } from "../../env";
 
 
@@ -11,7 +11,7 @@ class AppService{
     
     async createApp(name: string, userId: string):Promise<Record<string, string>>{
            const id= crypto.randomUUID();
-           await this.db.insert(app).values({
+           await this.db.insert(appTable).values({
                id,
                name,
                userId: userId,
@@ -21,7 +21,7 @@ class AppService{
     }
 
     async isAppPresent(appName:string,userId:string):Promise<boolean>{
-        return await this.db.select().from(app).where(and( eq(app.name, appName),eq(app.userId, userId))).then((app)=>app.length > 0);
+        return await this.db.select().from(appTable).where(and( eq(appTable.name, appName),eq(appTable.userId, userId))).then((app)=>app.length > 0);
         
     }
 }

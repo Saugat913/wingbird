@@ -8,22 +8,19 @@ export type Bindings = {
   GOOGLE_CLIENT_SECRET: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
-  WINGBIRD_FRONTEND_URL: string;
   S3_ACCESS_KEY_ID: string;
   S3_ACCESS_KEY: string;
   S3_BUCKET: string;
   S3_ENDPOINT: string;
   S3_REGION: string;
+  S3_PRESIGNED_EXPIRE_SECONDS?: string;
 };
 
 export type Variables = {
   db: DB;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image?: string | null;
-  };
+  user: schema.User;
+  app: schema.App;
+  release:schema.Release;
 };
 
 export type AppEnv = {

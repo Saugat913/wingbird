@@ -1,6 +1,8 @@
-pub mod whoami;
-pub mod upload;
-pub mod apps;
-pub use whoami::{User,WhoamiResponse};
-pub use upload::UploadResponse;
-pub use apps::{CreateAppRequest,CreateAppResponse};
+mod apps;
+mod release;
+mod upload;
+mod whoami;
+pub use apps::{CreateAppRequest, CreateAppResponse};
+pub use upload::{UploadResponse,UploadRequest};
+pub use whoami::{User, WhoamiResponse};
+pub use release::{CreateReleaseRequest,ReleaseData,ReleaseResponse};

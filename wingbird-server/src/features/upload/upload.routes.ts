@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { AppEnv } from "../../env";
 import UploadService from "./upload.service";
 import { requireAuth } from "../../middleware/auth";
-import { upload } from "../../db/schema";
+import { uploadTable, appTable } from "../../db/schema";
 import { and, eq } from "drizzle-orm";
 import { HttpError } from "../../middleware/error";
 
@@ -19,24 +19,26 @@ uploadRouter.post("/", requireAuth, async (c) => {
         fileName: string;
         fileType: string;
         fileSize: number;
+        appId: string;
+        fileHash: string;
     } = await c.req.json();
 
-    const { fileName, fileType, fileSize } = body;
+    const { fileName, fileType, fileSize, appId, fileHash } = body;
 
-    if (!fileName || !fileType || fileSize === undefined) {
-        throw new HttpError("Missing required fields", 400);
+    if (!fileName || !fileType || fileSize === undefined || !appId || !fileHash) {
+        throw new HttpError("Missing required fields (fileName, fileType, fileSize, appId, fileHash)", 400);
     }
 
     if (typeof fileSize !== "number" || !Number.isInteger(fileSize) || fileSize <= 0) {
-        throw new HttpError("Invalid file size", 400);
+        throw new HttpError("Invalid file size: must be a positive integer", 400);
     }
 
     if (fileSize > 100 * 1024 * 1024) {
-        throw new HttpError("File size too large", 400);
+        throw new HttpError("File size too large: maximum allowed is 100MB", 400);
     }
 
     if (!ALLOWED_CONTENT_TYPES.has(fileType)) {
-        throw new HttpError("Invalid file type", 400);
+        throw new HttpError("Invalid file type: unsupported MIME type", 400);
     }
 
     const sanitizedFileName = fileName
@@ -50,19 +52,31 @@ uploadRouter.post("/", requireAuth, async (c) => {
     }
 
     if (sanitizedFileName.length > 255) {
-        throw new HttpError("File name too long", 400);
+        throw new HttpError("File name too long: maximum 255 characters", 400);
+    }
+
+    const db = c.var.db;
+    const user = c.var.user;
+
+    const appRecord = await db
+        .select()
+        .from(appTable)
+        .where(and(eq(appTable.id, appId), eq(appTable.userId, user.id)))
+        .then((res) => res[0]);
+
+    if (!appRecord) {
+        throw new HttpError("App not found or you do not have permission to access it. Please ensure 'wingbird init' was run successfully.", 404);
     }
 
     const uploadId = crypto.randomUUID();
 
-    const db = c.var.db;
-
-    await db.insert(upload).values({
+    await db.insert(uploadTable).values({
         id: uploadId,
+        appId,
         fileName: sanitizedFileName,
         fileType,
         fileSize,
-        userId: c.var.user.id,
+        fileHash,
     });
 
     const uploadService = new UploadService(c.env);
@@ -70,16 +84,24 @@ uploadRouter.post("/", requireAuth, async (c) => {
 
     return c.json(result);
 });
+
 uploadRouter.get("/:key", requireAuth, async (c) => {
     const key = decodeURIComponent(c.req.param("key"));
     const uploadService = new UploadService(c.env);
     const user = c.var.user;
     const db = c.var.db;
 
-    const hasPermission = await db.select().from(upload).where(and(eq(upload.id, key), eq(upload.userId, user.id))).then((result) => result[0]?.userId === user.id);
+    const uploadRecord = await db
+        .select({
+            upload: uploadTable,
+        })
+        .from(uploadTable)
+        .innerJoin(appTable, eq(uploadTable.appId, appTable.id))
+        .where(and(eq(uploadTable.id, key), eq(appTable.userId, user.id)))
+        .then((result) => result[0]?.upload);
 
-    if (!hasPermission) {
-        return c.json({ message: "Unauthorized" }, 401);
+    if (!uploadRecord) {
+        throw new HttpError("Upload record not found or unauthorized", 404);
     }
 
     const url = await uploadService.getSignedUrl(key);
@@ -93,17 +115,44 @@ uploadRouter.patch("/:key/complete", requireAuth, async (c) => {
     const user = c.var.user;
     const db = c.var.db;
 
-    const hasPermission = await db.select().from(upload).where(and(eq(upload.id, key), eq(upload.userId, user.id))).then((result) => result[0]?.userId === user.id);
+    const uploadRecord = await db
+        .select({
+            upload: uploadTable,
+        })
+        .from(uploadTable)
+        .innerJoin(appTable, eq(uploadTable.appId, appTable.id))
+        .where(and(eq(uploadTable.id, key), eq(appTable.userId, user.id)))
+        .then((result) => result[0]?.upload);
 
-    if (!hasPermission) {
-        return c.json({ message: "Unauthorized" }, 401);
+    if (!uploadRecord) {
+        throw new HttpError("Upload record not found or unauthorized", 404);
     }
 
+    let s3Res: Response;
+    try {
+        s3Res = await uploadService.headObject(key);
+    } catch (err) {
+        throw new HttpError("Storage service currently unreachable. Please try again.", 503);
+    }
 
-    await db.update(upload).set({
+    if (!s3Res.ok) {
+        throw new HttpError("Uploaded file not found in storage bucket.", 400);
+    }
+
+    const contentLength = s3Res.headers.get("Content-Length");
+    if (contentLength) {
+        const actualSize = Number(contentLength);
+        if (actualSize !== uploadRecord.fileSize) {
+            throw new HttpError("Uploaded file size does not match registered file size.", 400);
+        }
+    }
+
+    await db.update(uploadTable).set({
         status: "completed",
-    }).where(eq(upload.id, key));
+        updatedAt:new Date()
+    }).where(eq(uploadTable.id, key));
 
     return c.json({ message: "Upload completed" });
 });
+
 export default uploadRouter;
