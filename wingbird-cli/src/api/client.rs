@@ -7,7 +7,11 @@ use serde::Deserialize;
 use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
-    api::{CreateAppRequest, CreateAppResponse, CreateReleaseRequest, ReleaseResponse, UploadRequest, UploadResponse, User, WhoamiResponse}, storage,
+    api::{
+        CreateAppRequest, CreateAppResponse, CreateReleaseRequest, ReleaseResponse, UploadRequest,
+        UploadResponse, User, WhoamiResponse,
+    },
+    storage,
 };
 
 pub struct ApiClient {
@@ -181,17 +185,23 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn create_app(&self, name: &str,) -> anyhow::Result<CreateAppResponse> {
-    let response = self.client
-        .post(self.server_url.join("/api/apps")?)
-        .header("Content-Type", "application/json")
-        .json(&CreateAppRequest { name: name.to_string() })
-        .bearer_auth(&self.token)
-        .send()
-        .await?;
-    
-    Ok(response.error_for_status()?.json::<CreateAppResponse>().await?)
-}
+    pub async fn create_app(&self, name: &str) -> anyhow::Result<CreateAppResponse> {
+        let response = self
+            .client
+            .post(self.server_url.join("/api/apps")?)
+            .header("Content-Type", "application/json")
+            .json(&CreateAppRequest {
+                name: name.to_string(),
+            })
+            .bearer_auth(&self.token)
+            .send()
+            .await?;
+
+        Ok(response
+            .error_for_status()?
+            .json::<CreateAppResponse>()
+            .await?)
+    }
 
     pub async fn mark_upload_complete(&self, key: &str) -> anyhow::Result<()> {
         let response = self
@@ -214,22 +224,24 @@ impl ApiClient {
         Ok(())
     }
 
-
     pub async fn create_release(
-    &self,
-    app_id: &str,
-    req: &CreateReleaseRequest,
-) -> anyhow::Result<ReleaseResponse> {
-    let response = self
-        .client
-        .post(self.server_url.join(&format!("/api/apps/{app_id}/releases"))?)
-        .bearer_auth(&self.token)
-        .json(req)
-        .send()
-        .await?
-        .error_for_status()?;
+        &self,
+        app_id: &str,
+        req: &CreateReleaseRequest,
+    ) -> anyhow::Result<ReleaseResponse> {
+        let response = self
+            .client
+            .post(
+                self.server_url
+                    .join(&format!("/api/apps/{app_id}/releases"))?,
+            )
+            .bearer_auth(&self.token)
+            .json(req)
+            .send()
+            .await?
+            .error_for_status()?;
 
-    let release_response = response.json::<ReleaseResponse>().await?;
-    Ok(release_response)
-}
+        let release_response = response.json::<ReleaseResponse>().await?;
+        Ok(release_response)
+    }
 }
