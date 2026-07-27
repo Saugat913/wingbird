@@ -10,20 +10,30 @@ import { requireReleaseAccess } from "../../middleware/release-access";
 
 const releasesRouter= new Hono<AppEnv>();
 
-releasesRouter.use("*",requireAuth);
+releasesRouter.get("/:appId/releases", async (c) => {
+    const appId = c.req.param("appId");
+    const db = c.var.db;
+    const version = c.req.query("version");
+    const platform = c.req.query("platform");
+    const channel = c.req.query("channel");
 
-releasesRouter.get("/:appId/releases",requireAppAccess,async (c) => {
-
-    const app= c.var.app;
-    const db=c.var.db;
-
-    const releases= await db.select().from(releaseTable).where(eq(releaseTable.appId,app.id));
+    let releases = await db.select().from(releaseTable).where(eq(releaseTable.appId, appId));
+    
+    if (version) {
+        releases = releases.filter(r => r.releaseVersion === version);
+    }
+    if (platform) {
+        releases = releases.filter(r => r.platform.toLowerCase() === platform.toLowerCase());
+    }
+    if (channel) {
+        releases = releases.filter(r => r.channel.toLowerCase() === channel.toLowerCase());
+    }
 
     return c.json({ releases });
 });
 
 
-releasesRouter.post("/:appId/releases",requireAppAccess,async (c) => {
+releasesRouter.post("/:appId/releases", requireAuth, requireAppAccess, async (c) => {
     const app= c.var.app;
     const db= c.var.db;
 
@@ -58,14 +68,18 @@ releasesRouter.post("/:appId/releases",requireAppAccess,async (c) => {
 
 
 const releasesStandaloneRouter= new Hono<AppEnv>();
-releasesStandaloneRouter.use("*",requireAuth);
 
-releasesStandaloneRouter.get("/:releaseId", requireReleaseAccess,async (c) => {
-    const release = c.var.release;
+releasesStandaloneRouter.get("/:releaseId", async (c) => {
+    const releaseId = c.req.param("releaseId");
+    const db = c.var.db;
+    const [release] = await db.select().from(releaseTable).where(eq(releaseTable.id, releaseId));
+    if (!release) {
+        throw new HttpError("Release not found", 404);
+    }
     return c.json({ release });
 });
 
-releasesStandaloneRouter.delete("/:releaseId", requireReleaseAccess, async (c) => {
+releasesStandaloneRouter.delete("/:releaseId", requireAuth, requireReleaseAccess, async (c) => {
     const release = c.var.release;
     const db = c.var.db;
     

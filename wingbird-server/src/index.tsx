@@ -1,4 +1,5 @@
-import { Hono } from "hono";import ui from "./ui";
+import { Hono } from "hono";
+import ui from "./ui";
 import type { AppEnv } from "./env";
 import { errorHandler } from "./middleware/error";
 import { dbMiddleware } from "./middleware/db";
@@ -7,9 +8,9 @@ import authRouter from "./features/auth/auth.routes";
 import uploadRouter from "./features/upload/upload.routes";
 import appsRouter from "./features/apps/apps.routes";
 import { releasesRouter, releasesStandaloneRouter } from "./features/releases/releases.routes";
+import { patchesRouter, standalonePatchesRouter } from "./features/patches/patches.routes";
 
 const app = new Hono<AppEnv>();
-
 
 app.onError(errorHandler);
 app.use("*", dbMiddleware);
@@ -21,12 +22,14 @@ app.route("/api/apps", appsRouter);
 
 app.route("/api/apps", releasesRouter);
 app.route("/api/releases", releasesStandaloneRouter);
+app.route("/api/releases", patchesRouter);
+app.route("/api/patches", standalonePatchesRouter);
 
 app.get("/api/health", (c) => {
   return c.json({ status: "ok" });
 });
 
-app.get("/api/whoami", requireAuth,(c) => {
+app.get("/api/whoami", requireAuth, (c) => {
   return c.json({ user: c.get("user") });
 });
 
