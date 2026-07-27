@@ -21,6 +21,7 @@ export type Variables = {
   user: schema.User;
   app: schema.App;
   release:schema.Release;
+  patch: schema.Patch;
 };
 
 export type AppEnv = {

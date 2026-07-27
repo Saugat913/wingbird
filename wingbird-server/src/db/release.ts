@@ -1,10 +1,10 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { appTable } from "./apps";
+import { PLATFORMS } from "./types/platforms";
+import { CHANNELS } from "./types/channel";
 
 
-const PLATFORMS= ["android","ios"]as const;
 
-export type Platforms = typeof PLATFORMS[number];
 
 export const releaseTable = sqliteTable("release", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -12,7 +12,7 @@ export const releaseTable = sqliteTable("release", {
     artifactKey: text("artifact_key").notNull(),
     releaseVersion: text("release_version").notNull(),
     platform: text("platform",{enum: PLATFORMS}).notNull(),
-    channel: text("channel").notNull(),
+    channel: text("channel",{enum: CHANNELS}).notNull(),
 
     fileName: text("file_name").notNull(),
     fileSize: integer("file_size").notNull(),
