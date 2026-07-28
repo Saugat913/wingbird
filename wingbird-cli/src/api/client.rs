@@ -8,8 +8,9 @@ use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
     api::{
-        CreateAppRequest, CreateAppResponse, CreateReleaseRequest, ReleaseResponse, UploadRequest,
-        UploadResponse, User, WhoamiResponse,
+        CreateAppRequest, CreateAppResponse, CreatePatchRequest, CreateReleaseRequest,
+        PatchResponse, ReleaseData, ReleaseResponse, UploadRequest, UploadResponse, User,
+        WhoamiResponse,
     },
     storage,
 };
@@ -243,5 +244,55 @@ impl ApiClient {
 
         let release_response = response.json::<ReleaseResponse>().await?;
         Ok(release_response)
+    }
+
+    pub async fn get_releases(
+        &self,
+        app_id: &str,
+        platform: &str,
+        channel: &str,
+        version: &str,
+    ) -> anyhow::Result<Vec<ReleaseData>> {
+        let encoded_version = urlencoding::encode(version);
+        let url = self.server_url.join(&format!(
+            "/api/apps/{app_id}/releases?platform={platform}&channel={channel}&version={encoded_version}"
+        ))?;
+        let response = self
+            .client
+            .get(url)
+            .bearer_auth(&self.token)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        #[derive(Deserialize)]
+        struct ReleasesResponse {
+            releases: Vec<ReleaseData>,
+        }
+
+        let res: ReleasesResponse = response.json().await?;
+        Ok(res.releases)
+    }
+
+    pub async fn create_patch(
+        &self,
+        release_id: &str,
+        req: &CreatePatchRequest,
+    ) -> anyhow::Result<PatchResponse> {
+        let url = self
+            .server_url
+            .join(&format!("/api/releases/{release_id}/patches"))?;
+
+        let response = self
+            .client
+            .post(url)
+            .bearer_auth(&self.token)
+            .json(req)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        let patch_res = response.json::<PatchResponse>().await?;
+        Ok(patch_res)
     }
 }
