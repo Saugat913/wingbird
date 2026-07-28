@@ -5,7 +5,7 @@ pub struct CreatePatchRequest {
     pub artifacts: Vec<PatchArtifactDto>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatchArtifactDto {
     pub upload_key: String,
