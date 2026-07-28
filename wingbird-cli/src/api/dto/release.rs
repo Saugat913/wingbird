@@ -29,4 +29,5 @@ pub struct ReleaseData {
     pub release_version: String,
     pub platform: String,
     pub channel: String,
+    pub artifact_key: String,
 }

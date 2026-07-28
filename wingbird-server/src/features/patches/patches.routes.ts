@@ -15,7 +15,7 @@ import { Channels } from "../../db/types/channel";
 const patchesRouter = new Hono<AppEnv>();
 patchesRouter.use("*", requireAuth);
 
-patchesRouter.post("/:releaseId/patches",requireReleaseAccess, async (c) => {
+patchesRouter.post("/:releaseId/patches", requireReleaseAccess, async (c) => {
     const release = c.var.release;
     const db = c.var.db;
 
@@ -27,34 +27,32 @@ patchesRouter.post("/:releaseId/patches",requireReleaseAccess, async (c) => {
     const newPatchNumber = (latest?.patchNumber ?? 0) + 1;
     const uploadService = new UploadService(c.env);
 
-    const patches = await db.transaction(async (tx) => {
-        const values = [];
 
-        for (const artifact of artifacts) {
-            const { upload_key, architecture, fileHash, fileName, fileSize, fileType } = artifact;
+    const values = [];
 
-            if (!await uploadService.validateArtifact(upload_key, {
-                size: fileSize,
-                type: fileType,
-            })) {
-                throw new HttpError("Artifact validation failed", 400);
-            }
+    for (const artifact of artifacts) {
+        const { upload_key, architecture, fileHash, fileName, fileSize, fileType } = artifact;
 
-            values.push({
-                architecture: architecture,
-                artifactKey: upload_key,
-                fileHash: fileHash,
-                fileName: fileName,
-                fileSize: fileSize,
-                fileType: fileType,
-                releaseId: release.id,
-                patchNumber: newPatchNumber,
-            });
+        if (!await uploadService.validateArtifact(upload_key, {
+            size: fileSize,
+            type: fileType,
+        })) {
+            throw new HttpError("Artifact validation failed", 400);
         }
 
-        const patches = await tx.insert(patchTable).values(values).returning();
-        return patches;
-    });
+        values.push({
+            architecture: architecture,
+            artifactKey: upload_key,
+            fileHash: fileHash,
+            fileName: fileName,
+            fileSize: fileSize,
+            fileType: fileType,
+            releaseId: release.id,
+            patchNumber: newPatchNumber,
+        });
+    }
+
+    const patches = await db.insert(patchTable).values(values).returning();
 
     return c.json({ patches }, 201);
 });

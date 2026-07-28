@@ -38,3 +38,17 @@ fn hash_file(path: impl AsRef<Path>) -> anyhow::Result<blake3::Hash> {
 
     Ok(hasher.finalize())
 }
+
+pub fn extract_libapp_so(apk_path: &str, arch: &str, output_path: &str) -> anyhow::Result<()> {
+    let file = std::fs::File::open(apk_path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+    
+    // Flutter libapp.so is typically located at lib/<arch>/libapp.so inside the APK
+    let entry_name = format!("lib/{}/libapp.so", arch);
+    let mut zip_file = archive.by_name(&entry_name)
+        .map_err(|_| anyhow::anyhow!("libapp.so not found in APK for architecture {}", arch))?;
+
+    let mut out_file = std::fs::File::create(output_path)?;
+    std::io::copy(&mut zip_file, &mut out_file)?;
+    Ok(())
+}
