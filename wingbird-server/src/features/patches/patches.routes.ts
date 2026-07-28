@@ -32,20 +32,20 @@ patchesRouter.post("/:releaseId/patches", requireReleaseAccess, async (c) => {
     const values = [];
 
     for (const artifact of artifacts) {
-        const { upload_key, architecture, fileHash, fileName, fileSize, fileType } = artifact;
+        const {  uploadKey, architecture, fileHash, fileName, fileSize, fileType } = artifact;
 
-        await uploadService.validateArtifact(upload_key, {
+        await uploadService.validateArtifact(uploadKey, {
             size: fileSize,
             type: fileType,
         });
 
         values.push({
-            architecture: architecture,
-            artifactKey: upload_key,
-            fileHash: fileHash,
-            fileName: fileName,
-            fileSize: fileSize,
-            fileType: fileType,
+            architecture,
+            artifactKey: uploadKey,
+            fileHash,
+            fileName,
+            fileSize,
+            fileType,
             releaseId: release.id,
             patchNumber: newPatchNumber,
         });
