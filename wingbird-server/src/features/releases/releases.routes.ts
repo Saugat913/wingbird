@@ -7,33 +7,39 @@ import requireAppAccess from "../../middleware/app-access";
 import UploadService from "../upload/upload.service";
 import { HttpError } from "../../middleware/error";
 import { requireReleaseAccess } from "../../middleware/release-access";
+import { Platforms } from "../../db/types/platforms";
+import { Channels } from "../../db/types/channel";
 
 const releasesRouter= new Hono<AppEnv>();
 
-releasesRouter.get("/:appId/releases", async (c) => {
-    const appId = c.req.param("appId");
+releasesRouter.use("*", requireAuth);
+
+releasesRouter.get("/:appId/releases", requireAppAccess, async (c) => {
+    const appId = c.var.app.id;
     const db = c.var.db;
     const version = c.req.query("version");
-    const platform = c.req.query("platform");
-    const channel = c.req.query("channel");
+    const platform = c.req.query("platform") as Platforms;
+    const channel = c.req.query("channel") as Channels;
 
-    let releases = await db.select().from(releaseTable).where(eq(releaseTable.appId, appId));
+    const filter= [eq(releaseTable.appId, appId)]
     
     if (version) {
-        releases = releases.filter(r => r.releaseVersion === version);
+       filter.push(eq(releaseTable.releaseVersion, version))
     }
     if (platform) {
-        releases = releases.filter(r => r.platform.toLowerCase() === platform.toLowerCase());
+        filter.push(eq(releaseTable.platform, platform))
     }
     if (channel) {
-        releases = releases.filter(r => r.channel.toLowerCase() === channel.toLowerCase());
+        filter.push(eq(releaseTable.channel, channel))
     }
+
+    let releases = await db.select().from(releaseTable).where(and(...filter));
 
     return c.json({ releases });
 });
 
 
-releasesRouter.post("/:appId/releases", requireAuth, requireAppAccess, async (c) => {
+releasesRouter.post("/:appId/releases", requireAppAccess, async (c) => {
     const app= c.var.app;
     const db= c.var.db;
 
@@ -42,7 +48,6 @@ releasesRouter.post("/:appId/releases", requireAuth, requireAppAccess, async (c)
     const { upload_key, release_version, platform, channel, fileHash, fileName, fileSize, fileType } = body;
     
 
-    // Lets validate the artifacts 
     const uploadService= new UploadService(c.env);
 
     if(!await uploadService.validateArtifact(upload_key, { size: fileSize, type: fileType })){
@@ -69,17 +74,14 @@ releasesRouter.post("/:appId/releases", requireAuth, requireAppAccess, async (c)
 
 const releasesStandaloneRouter= new Hono<AppEnv>();
 
-releasesStandaloneRouter.get("/:releaseId", async (c) => {
-    const releaseId = c.req.param("releaseId");
-    const db = c.var.db;
-    const [release] = await db.select().from(releaseTable).where(eq(releaseTable.id, releaseId));
-    if (!release) {
-        throw new HttpError("Release not found", 404);
-    }
+releasesStandaloneRouter.use("*", requireAuth);
+
+releasesStandaloneRouter.get("/:releaseId", requireReleaseAccess, async (c) => {
+    const release = c.var.release;
     return c.json({ release });
 });
 
-releasesStandaloneRouter.delete("/:releaseId", requireAuth, requireReleaseAccess, async (c) => {
+releasesStandaloneRouter.delete("/:releaseId", requireReleaseAccess, async (c) => {
     const release = c.var.release;
     const db = c.var.db;
     
