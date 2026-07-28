@@ -59,8 +59,23 @@ impl ApiClient {
         }?;
         Ok(api_client)
     }
-    pub fn server_url(&self) -> &str {
-        &self.server_url.as_str()
+
+
+    async fn handle_response<T: serde::de::DeserializeOwned>(
+        response: reqwest::Response,
+    ) -> anyhow::Result<T> {
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&body) {
+                if let Some(err_msg) = json_val.get("error").and_then(|v| v.as_str()) {
+                    anyhow::bail!("Server error ({}): {}", status, err_msg);
+                }
+            }
+            anyhow::bail!("Server request failed ({}): {}", status, body);
+        }
+        let res = response.json::<T>().await?;
+        Ok(res)
     }
 
     pub async fn whoami(&self) -> anyhow::Result<User> {
@@ -70,8 +85,8 @@ impl ApiClient {
             .bearer_auth(&self.token)
             .send()
             .await?;
-        let response = response.json::<WhoamiResponse>().await?;
-        Ok(response.user)
+        let whoami: WhoamiResponse = Self::handle_response(response).await?;
+        Ok(whoami.user)
     }
 
     pub async fn logout(&self) -> anyhow::Result<()> {
@@ -84,7 +99,8 @@ impl ApiClient {
             .send()
             .await?;
         if !response.status().is_success() {
-            anyhow::bail!("Logout failed");
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Logout failed: {}", body);
         }
         Ok(())
     }
@@ -109,16 +125,9 @@ impl ApiClient {
                 file_hash: file_hash.into(),
             })
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            anyhow::bail!("Upload request failed ({}): {}", status, body);
-        }
-
-        let UploadResponse { key, url } = response.json().await?;
+        let UploadResponse { key, url } = Self::handle_response(response).await?;
         Ok((key, url))
     }
 
@@ -148,8 +157,7 @@ impl ApiClient {
             .header(header::CONTENT_LENGTH, file_size)
             .body(file)
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -166,12 +174,16 @@ impl ApiClient {
             .get(self.server_url.join(&format!("/api/uploads/{file_key}"))?)
             .bearer_auth(&self.token)
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
+        let status = response.status();
+        if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
+            if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&body) {
+                if let Some(err_msg) = json_val.get("error").and_then(|v| v.as_str()) {
+                    anyhow::bail!("Download failed ({}): {}", status, err_msg);
+                }
+            }
             anyhow::bail!("Download failed ({}): {}", status, body);
         }
 
@@ -198,10 +210,7 @@ impl ApiClient {
             .send()
             .await?;
 
-        Ok(response
-            .error_for_status()?
-            .json::<CreateAppResponse>()
-            .await?)
+        Self::handle_response(response).await
     }
 
     pub async fn mark_upload_complete(&self, key: &str) -> anyhow::Result<()> {
@@ -216,9 +225,14 @@ impl ApiClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
+        let status = response.status();
+        if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
+            if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&body) {
+                if let Some(err_msg) = json_val.get("error").and_then(|v| v.as_str()) {
+                    anyhow::bail!("Failed to complete upload ({}): {}", status, err_msg);
+                }
+            }
             anyhow::bail!("Failed to complete upload ({}): {}", status, body);
         }
 
@@ -239,11 +253,9 @@ impl ApiClient {
             .bearer_auth(&self.token)
             .json(req)
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
-        let release_response = response.json::<ReleaseResponse>().await?;
-        Ok(release_response)
+        Self::handle_response(response).await
     }
 
     pub async fn get_releases(
@@ -262,15 +274,14 @@ impl ApiClient {
             .get(url)
             .bearer_auth(&self.token)
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
         #[derive(Deserialize)]
         struct ReleasesResponse {
             releases: Vec<ReleaseData>,
         }
 
-        let res: ReleasesResponse = response.json().await?;
+        let res: ReleasesResponse = Self::handle_response(response).await?;
         Ok(res.releases)
     }
 
@@ -289,10 +300,9 @@ impl ApiClient {
             .bearer_auth(&self.token)
             .json(req)
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
-        let patch_res = response.json::<PatchResponse>().await?;
-        Ok(patch_res)
+        Self::handle_response(response).await
     }
 }
+

@@ -7,7 +7,7 @@ use crate::{
     utils,
 };
 
-const ARCHITECTURES: &[&str] = &["arm64-v8a", "armeabi-v7a", "x86_64"];
+const SUPPORTED_ARCHITECTURES: &[&str] = &["arm64-v8a", "armeabi-v7a", "x86_64"];
 
 pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let config = Config::load()?;
@@ -41,22 +41,34 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
         .download_file(&base_release.artifact_key, &base_apk_path)
         .await?;
 
+    let base_archs = utils::detect_architectures(&base_apk_path)?;
+    let new_archs = utils::detect_architectures(new_apk_path)?;
+    let mut architectures = Vec::new();
+    for arch in base_archs {
+        if new_archs.contains(&arch) && SUPPORTED_ARCHITECTURES.contains(&arch.as_str()) {
+            architectures.push(arch);
+        }
+    }
+
+    anyhow::ensure!(
+        !architectures.is_empty(),
+        "No supported common architectures found with libapp.so in both base and new APKs (available base: {:?}, new: {:?})",
+        utils::detect_architectures(&base_apk_path).unwrap_or_default(),
+        utils::detect_architectures(new_apk_path).unwrap_or_default()
+    );
+
     let mut patch_artifacts = Vec::new();
 
-    // 4. Extract and diff libapp.so for each architecture
-    for arch in ARCHITECTURES {
+    for arch in &architectures {
         info(&format!("Processing architecture: {}", arch));
 
         let base_so_path = format!("base_{}_{}.so", arch, pubspec.version);
         let new_so_path = format!("new_{}_{}.so", arch, pubspec.version);
         let patch_bin_path = format!("patch_{}_{}.patch", arch, pubspec.version);
 
-        // Extract libapp.so from base APK
         utils::extract_libapp_so(&base_apk_path, arch, &base_so_path)?;
-        // Extract libapp.so from new APK
         utils::extract_libapp_so(new_apk_path, arch, &new_so_path)?;
 
-        // Generate bsdiff patch using qbsdiff
         info(&format!("Generating patch diff for {}...", arch));
         let base_bytes = std::fs::read(&base_so_path)?;
         let new_bytes = std::fs::read(&new_so_path)?;
@@ -64,13 +76,11 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
         qbsdiff::Bsdiff::new(&base_bytes, &new_bytes).compare(io::Cursor::new(&mut patch_bytes))?;
         std::fs::write(&patch_bin_path, &patch_bytes)?;
 
-        // Compute hash and size
         let file_size = patch_bytes.len() as u64;
         let file_hash = blake3::hash(&patch_bytes).to_hex().to_string();
         let file_name = format!("libapp-{}.patch", arch);
         let file_type = "application/octet-stream".to_string();
 
-        // Upload patch artifact
         wait(&format!("Uploading patch for {}...", arch));
         let (upload_key, _url) = client
             .upload_file(&patch_bin_path, &file_type, &config.app_id, &file_hash)
@@ -86,7 +96,6 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
             file_type,
         });
 
-        // Cleanup temp files
         let _ = std::fs::remove_file(base_so_path);
         let _ = std::fs::remove_file(new_so_path);
         let _ = std::fs::remove_file(patch_bin_path);
@@ -94,7 +103,6 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
 
     let _ = std::fs::remove_file(base_apk_path);
 
-    // 5. Submit create patch request
     wait("Creating patch record on server...");
     let req = CreatePatchRequest {
         artifacts: patch_artifacts,
@@ -109,3 +117,4 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
 
     Ok(())
 }
+

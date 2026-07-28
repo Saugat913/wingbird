@@ -11,6 +11,7 @@ import { requireAuth } from "../../middleware/auth";
 import { Platforms } from "../../db/types/platforms";
 import { Architectures } from "../../db/types/architecture";
 import { Channels } from "../../db/types/channel";
+import requirePatchAccess from "../../middleware/patch-access";
 
 const patchesRouter = new Hono<AppEnv>();
 patchesRouter.use("*", requireAuth);
@@ -33,12 +34,10 @@ patchesRouter.post("/:releaseId/patches", requireReleaseAccess, async (c) => {
     for (const artifact of artifacts) {
         const { upload_key, architecture, fileHash, fileName, fileSize, fileType } = artifact;
 
-        if (!await uploadService.validateArtifact(upload_key, {
+        await uploadService.validateArtifact(upload_key, {
             size: fileSize,
             type: fileType,
-        })) {
-            throw new HttpError("Artifact validation failed", 400);
-        }
+        });
 
         values.push({
             architecture: architecture,
@@ -94,20 +93,16 @@ patchesStandaloneRouter.get("/", async (c) => {
     return c.json({ patches });
 });
 
-patchesStandaloneRouter.get("/:patchId", async (c) => {
-    const patchId = c.req.param("patchId");
-    const db = c.var.db;
-
-    const patch = await db.select().from(patchTable).where(eq(patchTable.id, patchId));
-
+patchesStandaloneRouter.get("/:patchId", requirePatchAccess, async (c) => {
+    const patch = c.var.patch;
     return c.json({ patch });
 });
 
-patchesStandaloneRouter.delete("/:patchId", async (c) => {
-    const patchId = c.req.param("patchId");
+patchesStandaloneRouter.delete("/:patchId", requirePatchAccess, async (c) => {
+    const patch = c.var.patch;
     const db = c.var.db;
 
-    await db.delete(patchTable).where(eq(patchTable.id, patchId));
+    await db.delete(patchTable).where(eq(patchTable.id, patch.id));
 
     return c.json({ message: "Patch deleted successfully" });
 });

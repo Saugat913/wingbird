@@ -50,9 +50,7 @@ releasesRouter.post("/:appId/releases", requireAppAccess, async (c) => {
 
     const uploadService= new UploadService(c.env);
 
-    if(!await uploadService.validateArtifact(upload_key, { size: fileSize, type: fileType })){
-        throw new HttpError("Artifact validation failed", 400);
-    }
+    await uploadService.validateArtifact(upload_key, { size: fileSize, type: fileType });
 
 
     const [release]= await db.insert(releaseTable).values({

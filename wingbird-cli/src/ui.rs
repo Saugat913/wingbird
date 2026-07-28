@@ -39,10 +39,6 @@ pub fn wait(msg: &str) {
     print("[⧗]", msg, |s| s.yellow());
 }
 
-pub fn step(msg: &str) {
-    println!("{} {}", "[✔]".green().bold(), msg.dimmed());
-}
-
 pub fn link(msg: &str, url: &str) {
     println!(
         "{} {} {}",
