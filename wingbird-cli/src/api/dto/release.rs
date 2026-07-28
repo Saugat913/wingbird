@@ -1,16 +1,13 @@
 #[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReleaseRequest {
     pub upload_key: String,
     pub release_version: String,
     pub platform: String,
     pub channel: String,
-    #[serde(rename = "fileHash")]
     pub file_hash: String,
-    #[serde(rename = "fileName")]
     pub file_name: String,
-    #[serde(rename = "fileSize")]
     pub file_size: u64,
-    #[serde(rename = "fileType")]
     pub file_type: String,
 }
 
@@ -29,4 +26,5 @@ pub struct ReleaseData {
     pub release_version: String,
     pub platform: String,
     pub channel: String,
+    pub artifact_key: String,
 }

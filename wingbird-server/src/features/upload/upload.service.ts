@@ -1,5 +1,6 @@
 import { AwsClient } from "aws4fetch";
 import { AppEnv } from "../../env";
+import { HttpError } from "../../middleware/error";
 
 class UploadService {
     private client: AwsClient;
@@ -81,16 +82,18 @@ class UploadService {
 
     async validateArtifact(key: string, file: { size: number, type: string }): Promise<boolean> {
         const response = await this.headObject(key);
+        if (!response.ok) {
+            throw new HttpError(`Uploaded file not found in storage bucket (key: ${key}, S3 status: ${response.status})`, 404);
+        }
         const contentLength = Number(response.headers.get("Content-Length"));
         const contentType = response.headers.get("Content-Type");
-        const etag = response.headers.get("ETag");
-        if (contentLength !== file.size || contentType !== file.type) {
-            throw new Error('Artifact validation failed');
+        if (contentLength !== file.size) {
+            throw new HttpError(`File size mismatch: expected ${file.size} bytes, got ${contentLength} bytes`, 400);
         }
-        if (!response.ok) {
-            throw new Error('Artifact not found');
+        if (contentType !== file.type) {
+            throw new HttpError(`File type mismatch: expected ${file.type}, got ${contentType}`, 400);
         }
-        return response.ok;
+        return true;
     }
 }
 

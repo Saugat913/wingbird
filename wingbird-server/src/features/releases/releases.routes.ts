@@ -7,23 +7,39 @@ import requireAppAccess from "../../middleware/app-access";
 import UploadService from "../upload/upload.service";
 import { HttpError } from "../../middleware/error";
 import { requireReleaseAccess } from "../../middleware/release-access";
+import { Platforms } from "../../db/types/platforms";
+import { Channels } from "../../db/types/channel";
 
 const releasesRouter= new Hono<AppEnv>();
 
-releasesRouter.use("*",requireAuth);
+releasesRouter.use("*", requireAuth);
 
-releasesRouter.get("/:appId/releases",requireAppAccess,async (c) => {
+releasesRouter.get("/:appId/releases", requireAppAccess, async (c) => {
+    const appId = c.var.app.id;
+    const db = c.var.db;
+    const version = c.req.query("version");
+    const platform = c.req.query("platform") as Platforms;
+    const channel = c.req.query("channel") as Channels;
 
-    const app= c.var.app;
-    const db=c.var.db;
+    const filter= [eq(releaseTable.appId, appId)]
+    
+    if (version) {
+       filter.push(eq(releaseTable.releaseVersion, version))
+    }
+    if (platform) {
+        filter.push(eq(releaseTable.platform, platform))
+    }
+    if (channel) {
+        filter.push(eq(releaseTable.channel, channel))
+    }
 
-    const releases= await db.select().from(releaseTable).where(eq(releaseTable.appId,app.id));
+    let releases = await db.select().from(releaseTable).where(and(...filter));
 
     return c.json({ releases });
 });
 
 
-releasesRouter.post("/:appId/releases",requireAppAccess,async (c) => {
+releasesRouter.post("/:appId/releases", requireAppAccess, async (c) => {
     const app= c.var.app;
     const db= c.var.db;
 
@@ -32,12 +48,9 @@ releasesRouter.post("/:appId/releases",requireAppAccess,async (c) => {
     const { upload_key, release_version, platform, channel, fileHash, fileName, fileSize, fileType } = body;
     
 
-    // Lets validate the artifacts 
     const uploadService= new UploadService(c.env);
 
-    if(!await uploadService.validateArtifact(upload_key, { size: fileSize, type: fileType })){
-        throw new HttpError("Artifact validation failed", 400);
-    }
+    await uploadService.validateArtifact(upload_key, { size: fileSize, type: fileType });
 
 
     const [release]= await db.insert(releaseTable).values({
@@ -58,9 +71,10 @@ releasesRouter.post("/:appId/releases",requireAppAccess,async (c) => {
 
 
 const releasesStandaloneRouter= new Hono<AppEnv>();
-releasesStandaloneRouter.use("*",requireAuth);
 
-releasesStandaloneRouter.get("/:releaseId", requireReleaseAccess,async (c) => {
+releasesStandaloneRouter.use("*", requireAuth);
+
+releasesStandaloneRouter.get("/:releaseId", requireReleaseAccess, async (c) => {
     const release = c.var.release;
     return c.json({ release });
 });
