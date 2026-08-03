@@ -3,6 +3,8 @@ import AppEnv from "../../env";
 import { CreatePatchDto, GetPatchQuery, PatchDto } from "./patches.dto";
 import { PlatformSchema } from "../../types/platforms";
 import { ChannelSchema } from "../../types/channels";
+import { requireAuth } from "../../middleware/auth";
+import requireAppAccess from "../../middleware/app-access";
 
 
 export const patchesRouter = new OpenAPIHono<AppEnv>();
@@ -12,6 +14,7 @@ patchesRouter.openapi(
     method: "post",
     path: "/apps/{appId}/releases/{version}/patches",
     summary: "Create patch",
+    middleware: [requireAuth, requireAppAccess()],
     request: {
       params: z.object({
         appId: z.string(),
@@ -54,7 +57,8 @@ patchesRouter.openapi(
 
     const patch = await c.var.patchService.create({
       ...body,
-      ...params,
+      appId: c.var.app.id,
+      version: params.version,
       ...query,
     });
 
@@ -67,6 +71,7 @@ patchesRouter.openapi(
     method: "get",
     path: "/apps/{appId}/releases/{version}/patches/latest/download",
     summary: "Download latest patch",
+    middleware: [requireAppAccess({ requireOwnership: false })],
     request: {
       params: z.object({
         appId: z.string(),
@@ -88,13 +93,14 @@ patchesRouter.openapi(
     const query = c.req.valid("query");
 
     const patch = await c.var.patchService.getLatestPatch({
-      ...params,
+      appId: c.var.app.id,
+      version: params.version,
       ...query,
     });
 
     const url = await c.var.uploadService.getDownloadUrl(
       patch.uploadId,
-      params.appId,
+      c.var.app.id,
     );
 
     return c.redirect(url, 302);

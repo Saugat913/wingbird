@@ -3,6 +3,8 @@ import AppEnv from "../../env";
 import { CreateReleaseDto, ReleaseDto } from "./releases.dto";
 import { PlatformSchema } from "../../types/platforms";
 import { ChannelSchema } from "../../types/channels";
+import { requireAuth } from "../../middleware/auth";
+import requireAppAccess from "../../middleware/app-access";
 
 
 export const releasesRouter = new OpenAPIHono<AppEnv>();
@@ -12,6 +14,7 @@ releasesRouter.openapi(
     method: "post",
     path: "/apps/{appId}/releases",
     summary: "Create release",
+    middleware: [requireAuth, requireAppAccess()],
     request: {
       params: z.object({
         appId: z.string().min(1, "AppId is required"),
@@ -41,10 +44,9 @@ releasesRouter.openapi(
   }),
   async (c) => {
     const body = c.req.valid("json");
-    const params = c.req.valid("param");
     const release = await c.var.releaseService.create({
       ...body,
-      ...params,
+      appId: c.var.app.id,
     });
     return c.json(release, 201);
   },
@@ -55,6 +57,7 @@ releasesRouter.openapi(
     method: "get",
     path: "/apps/{appId}/releases/{version}/download",
     summary: "Download release",
+    middleware: [requireAppAccess({ requireOwnership: false })],
     request: {
       params: z.object({
         appId: z.string(),
@@ -80,10 +83,11 @@ releasesRouter.openapi(
 
     const release = await c.var.releaseService.getByReleaseIdentity({
       ...query,
-      ...params,
+      appId: c.var.app.id,
+      version: params.version,
     });
 
-    const url = await c.var.uploadService.getDownloadUrl(release.uploadId, params.appId);
+    const url = await c.var.uploadService.getDownloadUrl(release.uploadId, c.var.app.id);
 
     return c.redirect(url, 302);
   }
