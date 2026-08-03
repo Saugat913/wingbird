@@ -1,112 +1,102 @@
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import AppEnv from "../../env";
+import { CreatePatchDto, GetPatchQuery, PatchDto } from "./patches.dto";
+import { PlatformSchema } from "../../types/platforms";
+import { ChannelSchema } from "../../types/channels";
 
 
-import { Hono } from "hono";
-import { AppEnv } from "../../env";
-import { requireReleaseAccess } from "../../middleware/release-access";
-import { patchTable, releaseTable } from "../../db/schema";
-import { desc, eq, and } from "drizzle-orm";
-import UploadService from "../upload/upload.service";
-import { HttpError } from "../../middleware/error";
-import { requireAuth } from "../../middleware/auth";
-import { Platforms } from "../../types/platforms";
-import { Architectures } from "../../types/architectures";
-import { Channels } from "../../types/channels";
-import requirePatchAccess from "../../middleware/patch-access";
+export const patchesRouter = new OpenAPIHono<AppEnv>();
 
-const patchesRouter = new Hono<AppEnv>();
-patchesRouter.use("*", requireAuth);
+patchesRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/apps/{appId}/releases/{version}/patches",
+    summary: "Create patch",
+    request: {
+      params: z.object({
+        appId: z.string(),
+        version: z.string(),
+      }),
+      query: z.object({
+        platform: PlatformSchema,
+        channel: ChannelSchema,
+      }),
+      body: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: CreatePatchDto,
+          },
+        },
+      },
+    },
+    responses: {
+      201: {
+        description: "Patch created",
+        content: {
+          "application/json": {
+            schema: PatchDto,
+          },
+        },
+      },
+      404: {
+        description: "Release not found",
+      },
+      409: {
+        description: "Patch already exists",
+      },
+    },
+  }),
+  async (c) => {
+    const body = c.req.valid("json");
+    const params = c.req.valid("param");
+    const query = c.req.valid("query");
 
-patchesRouter.post("/:releaseId/patches", requireReleaseAccess, async (c) => {
-    const release = c.var.release;
-    const db = c.var.db;
+    const patch = await c.var.patchService.create({
+      ...body,
+      ...params,
+      ...query,
+    });
 
-    const body = await c.req.json();
+    return c.json(patch!, 201);
+  },
+);
 
-    const { artifacts } = body;
-    const [latest] = await db.select({ patchNumber: patchTable.patchNumber }).from(patchTable).where(eq(patchTable.releaseId, release.id)).orderBy(desc(patchTable.patchNumber)).limit(1);
+patchesRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/apps/{appId}/releases/{version}/patches/latest/download",
+    summary: "Download latest patch",
+    request: {
+      params: z.object({
+        appId: z.string(),
+        version: z.string(),
+      }),
+      query: GetPatchQuery,
+    },
+    responses: {
+      302: {
+        description: "Redirect to patch download",
+      },
+      404: {
+        description: "Patch not found",
+      },
+    },
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const query = c.req.valid("query");
 
-    const newPatchNumber = (latest?.patchNumber ?? 0) + 1;
-    const uploadService = new UploadService(c.env);
+    const patch = await c.var.patchService.getLatestPatch({
+      ...params,
+      ...query,
+    });
 
-
-    const values = [];
-
-    for (const artifact of artifacts) {
-        const {  uploadKey, architecture, fileHash, fileName, fileSize, fileType } = artifact;
-
-        await uploadService.validateArtifact(uploadKey, {
-            size: fileSize,
-            type: fileType,
-        });
-
-        values.push({
-            architecture,
-            artifactKey: uploadKey,
-            fileHash,
-            fileName,
-            fileSize,
-            fileType,
-            releaseId: release.id,
-            patchNumber: newPatchNumber,
-        });
-    }
-
-    const patches = await db.insert(patchTable).values(values).returning();
-
-    return c.json({ patches }, 201);
-});
-
-patchesRouter.get("/:releaseId/patches", requireReleaseAccess, async (c) => {
-    const release = c.var.release;
-    const db = c.var.db;
-
-    const patches = await db.select().from(patchTable).where(eq(patchTable.releaseId, release.id));
-
-    return c.json({ patches });
-});
-
-
-
-const patchesStandaloneRouter = new Hono<AppEnv>();
-patchesStandaloneRouter.use("*", requireAuth);
-
-patchesStandaloneRouter.get("/", async (c) => {
-    const db = c.var.db;
-
-    const channel = c.req.query("channel") as Channels;
-    const platform = c.req.query("platform") as Platforms;
-    const architecture = c.req.query("architecture") as Architectures;
-
-    if (!channel || !platform || !architecture) {
-        throw new HttpError("Missing required query parameters", 400);
-    }
-
-
-    const patches = await db.select().from(patchTable).innerJoin(releaseTable, eq(patchTable.releaseId, releaseTable.id)).where(
-        and(
-            eq(releaseTable.channel, channel),
-            eq(releaseTable.platform, platform),
-            eq(patchTable.architecture, architecture),
-        )
+    const url = await c.var.uploadService.getDownloadUrl(
+      patch.uploadId,
+      params.appId,
     );
 
-    return c.json({ patches });
-});
-
-patchesStandaloneRouter.get("/:patchId", requirePatchAccess, async (c) => {
-    const patch = c.var.patch;
-    return c.json({ patch });
-});
-
-patchesStandaloneRouter.delete("/:patchId", requirePatchAccess, async (c) => {
-    const patch = c.var.patch;
-    const db = c.var.db;
-
-    await db.delete(patchTable).where(eq(patchTable.id, patch.id));
-
-    return c.json({ message: "Patch deleted successfully" });
-});
-
-
-
-export { patchesRouter, patchesStandaloneRouter as standalonePatchesRouter };
+    return c.redirect(url, 302);
+  },
+);

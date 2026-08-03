@@ -16,6 +16,9 @@ import { UploadRepository } from "./features/upload/uploads.repository";
 import { UploadService } from "./features/upload/upload.service";
 import uploadRouter from "./features/upload/upload.routes";
 import { releasesRouter } from "./features/releases/releases.routes";
+import { PatchesService } from "./features/patches/patches.service";
+import { PatchesRepository } from "./features/patches/patches.repository";
+import { patchesRouter } from "./features/patches/patches.routes";
 
 const app = new OpenAPIHono<AppEnv>();
 
@@ -43,6 +46,10 @@ app.use("*", (c, next) => {
   const uploadService= new UploadService(uploadRepo,storageRepo);
   c.set("uploadService", uploadService);
 
+  const patchRepo = new PatchesRepository(db);
+  const patchService = new PatchesService(patchRepo, releaseRepo);
+  c.set("patchService", patchService);
+
   return next();
 });
 
@@ -52,6 +59,7 @@ apiRouter.route("/auth", authRouter);
 apiRouter.route("/apps", appsRouter);
 apiRouter.route("/", uploadRouter);
 apiRouter.route("/", releasesRouter);
+apiRouter.route("/", patchesRouter);
 
 
 apiRouter.get("/health", (c) => {

@@ -1,5 +1,6 @@
 import { DB, schema } from "./db/db";
 import { AppService } from "./features/apps/apps.service";
+import { PatchesService } from "./features/patches/patches.service";
 import { ReleasesService } from "./features/releases/releases.service";
 import { UploadService } from "./features/upload/upload.service";
 
@@ -26,6 +27,7 @@ type Variables = {
   appService: AppService;
   releaseService:ReleasesService;
   uploadService: UploadService;
+  patchService: PatchesService;
 };
 
 type AppEnv = {
