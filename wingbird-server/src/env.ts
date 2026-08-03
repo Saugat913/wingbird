@@ -1,5 +1,7 @@
 import { DB, schema } from "./db/db";
 import { AppService } from "./features/apps/apps.service";
+import { ReleasesService } from "./features/releases/releases.service";
+import { UploadService } from "./features/upload/upload.service";
 
 
 type Bindings = {
@@ -13,17 +15,17 @@ type Bindings = {
   S3_BUCKET: string;
   S3_ENDPOINT: string;
   S3_REGION: string;
-  S3_PRESIGNED_EXPIRE_SECONDS?: string;
+  S3_PRESIGNED_EXPIRE_SECONDS: number;
 };
 
 type Variables = {
   db: DB;
   user: schema.User;
   app: schema.App;
-  release:schema.Release;
-  patch: schema.Patch;
 
   appService: AppService;
+  releaseService:ReleasesService;
+  uploadService: UploadService;
 };
 
 type AppEnv = {

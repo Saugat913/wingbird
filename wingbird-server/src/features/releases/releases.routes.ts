@@ -1,95 +1,90 @@
-import { Hono } from "hono";
-import { AppEnv } from "../../env";
-import { requireAuth } from "../../middleware/auth";
-import { appTable, releaseTable, userTable as UserTable } from "../../db/schema";
-import { and, eq } from "drizzle-orm";
-import requireAppAccess from "../../middleware/app-access";
-import UploadService from "../upload/upload.service";
-import { HttpError } from "../../middleware/error";
-import { requireReleaseAccess } from "../../middleware/release-access";
-import { Platforms } from "../../types/platforms";
-import { Channels } from "../../types/channels";
-
-const releasesRouter= new Hono<AppEnv>();
-
-releasesRouter.use("*", requireAuth);
-
-releasesRouter.get("/:appId/releases", requireAppAccess, async (c) => {
-    const appId = c.var.app.id;
-    const db = c.var.db;
-    const version = c.req.query("version");
-    const platform = c.req.query("platform") as Platforms;
-    const channel = c.req.query("channel") as Channels;
-
-    const filter= [eq(releaseTable.appId, appId)]
-    
-    if (version) {
-       filter.push(eq(releaseTable.releaseVersion, version))
-    }
-    if (platform) {
-        filter.push(eq(releaseTable.platform, platform))
-    }
-    if (channel) {
-        filter.push(eq(releaseTable.channel, channel))
-    }
-
-    let releases = await db.select().from(releaseTable).where(and(...filter));
-
-    return c.json({ releases });
-});
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import AppEnv from "../../env";
+import { CreateReleaseDto, ReleaseDto } from "./releases.dto";
+import { PlatformSchema } from "../../types/platforms";
+import { ChannelSchema } from "../../types/channels";
 
 
-releasesRouter.post("/:appId/releases", requireAppAccess, async (c) => {
-    const app= c.var.app;
-    const db= c.var.db;
+export const releasesRouter = new OpenAPIHono<AppEnv>();
 
+releasesRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/apps/{appId}/releases",
+    summary: "Create release",
+    request: {
+      params: z.object({
+        appId: z.string().min(1, "AppId is required"),
+      }),
+      body: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: CreateReleaseDto,
+          },
+        },
+      },
+    },
+    responses: {
+      201: {
+        description: "Release created",
+        content: {
+          "application/json": {
+            schema: ReleaseDto,
+          },
+        },
+      },
+      409: {
+        description: "Release already exists",
+      },
+    },
+  }),
+  async (c) => {
+    const body = c.req.valid("json");
+    const params = c.req.valid("param");
+    const release = await c.var.releaseService.create({
+      ...body,
+      ...params,
+    });
+    return c.json(release, 201);
+  },
+);
 
-    const body = await c.req.json();
-    const { upload_key, release_version, platform, channel, fileHash, fileName, fileSize, fileType } = body;
-    
+releasesRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/apps/{appId}/releases/{version}/download",
+    summary: "Download release",
+    request: {
+      params: z.object({
+        appId: z.string(),
+        version: z.string(),
+      }),
+      query: z.object({
+        platform: PlatformSchema,
+        channel: ChannelSchema,
+      }),
+    },
+    responses: {
+      302: {
+        description: "Redirect to download URL",
+      },
+      404: {
+        description: "Release not found",
+      },
+    },
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const query = c.req.valid("query");
 
-    const uploadService= new UploadService(c.env);
+    const release = await c.var.releaseService.getByReleaseIdentity({
+      ...query,
+      ...params,
+    });
 
-    await uploadService.validateArtifact(upload_key, { size: fileSize, type: fileType });
+    const url = await c.var.uploadService.getDownloadUrl(release.uploadId, params.appId);
 
-
-    const [release]= await db.insert(releaseTable).values({
-        appId:app.id,
-        artifactKey: upload_key,
-        releaseVersion: release_version,
-        platform: platform,
-        channel: channel,
-        fileHash:fileHash,
-        fileName:fileName,
-        fileSize:fileSize,
-        fileType:fileType,
-    }).returning();
-
-    return c.json({ release },201);
-});
-
-
-
-const releasesStandaloneRouter= new Hono<AppEnv>();
-
-releasesStandaloneRouter.use("*", requireAuth);
-
-releasesStandaloneRouter.get("/:releaseId", requireReleaseAccess, async (c) => {
-    const release = c.var.release;
-    return c.json({ release });
-});
-
-releasesStandaloneRouter.delete("/:releaseId", requireReleaseAccess, async (c) => {
-    const release = c.var.release;
-    const db = c.var.db;
-    
-    const [deletedRelease] = await db.delete(releaseTable).where(eq(releaseTable.id, release.id)).returning();
-    
-    if (!deletedRelease) {
-        throw new HttpError("Release not found", 404);
-    }
-    
-    return c.json({ release: deletedRelease });
-});
-
-export { releasesRouter, releasesStandaloneRouter };
+    return c.redirect(url, 302);
+  }
+);
