@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { AppEnv } from "../../env";
+import AppEnv from "../../env";
 import { initAuth } from "../../lib/auth";
 
 

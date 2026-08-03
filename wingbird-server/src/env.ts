@@ -1,4 +1,5 @@
 import { DB, schema } from "./db/db";
+import { AppService } from "./features/apps/apps.service";
 
 
 type Bindings = {
@@ -21,6 +22,8 @@ type Variables = {
   app: schema.App;
   release:schema.Release;
   patch: schema.Patch;
+
+  appService: AppService;
 };
 
 type AppEnv = {
