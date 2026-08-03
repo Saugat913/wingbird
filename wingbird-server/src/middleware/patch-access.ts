@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { AppEnv } from "../env";
 import { patchTable } from "../db/patch";
-import { releaseTable } from "../db/release";
+import { releaseTable } from "../db/releases";
 import { and, eq } from "drizzle-orm";
 import { appTable } from "../db/apps";
 import { HttpError } from "./error";

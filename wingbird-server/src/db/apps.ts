@@ -1,13 +1,13 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { userTable } from "./auth";
 
-export const appTable= sqliteTable("app",{
+const appsTable= sqliteTable("app",{
     id:text("id").primaryKey(),
     name:text("name").notNull(),
-    userId:text("user_id").references(()=>userTable.id),
+    userId:text("user_id").references(()=>userTable.id,{onDelete:"cascade"}),
     createdAt:integer("created_at",{mode:"timestamp"}).notNull().$default(() => new Date())
 });
 
+type App = typeof appsTable.$inferSelect;
 
-
-export type App = typeof appTable.$inferSelect;
+export { type App, appsTable };

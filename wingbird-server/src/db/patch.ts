@@ -1,27 +1,42 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { releaseTable } from "./schema";
+import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { releasesTable } from "./releases";
 import { ARCHITECTURES } from "../types/architectures";
 
+const patchesTable = sqliteTable(
+  "patches",
+  {
+    id: text("id")
+      .primaryKey()
+      .$default(() => crypto.randomUUID()),
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => releasesTable.id,{
+        onDelete:"cascade"
+      }),
+    patchNumber: integer("patch_number").notNull(),
 
-export const patchTable= sqliteTable("patch", {
-  id: text("id").primaryKey().$default(()=>crypto.randomUUID()),
-  releaseId:text("release_id").notNull().references(() => releaseTable.id),
-  
-  patchNumber:integer("patch_number").notNull(),
+    uploadId: text("upload_id").notNull(),
+    architecture: text("architecture", { enum: ARCHITECTURES }).notNull(),
 
-  architecture:text("architecture",{enum:ARCHITECTURES}).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).$default(
+      () => new Date(),
+    ),
+  },
+  (table) => [
+    unique("unique_patch").on(
+      table.releaseId,
+      table.architecture,
+      table.patchNumber,
+    ),
 
-  artifactKey:text("artifact_key").notNull(),
-  fileName:text("file_name").notNull(),
-  fileSize:integer("file_size").notNull(),
-  fileType:text("file_type").notNull(),
-  fileHash:text("file_hash").notNull(),
+    index("architecture_idx").on(
+      table.architecture,
+      table.patchNumber,
+      table.releaseId
+    )
+  ],
+);
 
-  createdAt:integer("created_at",{mode:"timestamp"}).notNull().$default(() => new Date()),
-},(table)=>[
-  index("patch_release_idx").on(table.releaseId),
-  index("patch_lookup_idx").on(table.releaseId,table.architecture,table.patchNumber),
-])
+type Patch = typeof patchesTable.$inferSelect;
 
-
-export type Patch = typeof patchTable.$inferSelect;
+export { type Patch, patchesTable };

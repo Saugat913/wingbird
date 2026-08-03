@@ -3,7 +3,7 @@ import { AppEnv } from "../env";
 import { appTable } from "../db/apps";
 import { userTable } from "../db/auth";
 import { and, eq } from "drizzle-orm";
-import { releaseTable } from "../db/release";
+import { releaseTable } from "../db/releases";
 
 export const requireReleaseAccess = createMiddleware<AppEnv>(async (c, next) => {
 
