@@ -7,8 +7,8 @@ import requireAppAccess from "../../middleware/app-access";
 import UploadService from "../upload/upload.service";
 import { HttpError } from "../../middleware/error";
 import { requireReleaseAccess } from "../../middleware/release-access";
-import { Platforms } from "../../db/types/platforms";
-import { Channels } from "../../db/types/channel";
+import { Platforms } from "../../types/platforms";
+import { Channels } from "../../types/channels";
 
 const releasesRouter= new Hono<AppEnv>();
 

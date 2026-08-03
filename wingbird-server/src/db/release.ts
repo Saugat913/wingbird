@@ -1,7 +1,7 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { appTable } from "./apps";
-import { PLATFORMS } from "./types/platforms";
-import { CHANNELS } from "./types/channel";
+import { PLATFORMS } from "../types/platforms";
+import { CHANNELS } from "../types/channels";
 
 
 

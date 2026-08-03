@@ -8,9 +8,9 @@ import { desc, eq, and } from "drizzle-orm";
 import UploadService from "../upload/upload.service";
 import { HttpError } from "../../middleware/error";
 import { requireAuth } from "../../middleware/auth";
-import { Platforms } from "../../db/types/platforms";
-import { Architectures } from "../../db/types/architecture";
-import { Channels } from "../../db/types/channel";
+import { Platforms } from "../../types/platforms";
+import { Architectures } from "../../types/architectures";
+import { Channels } from "../../types/channels";
 import requirePatchAccess from "../../middleware/patch-access";
 
 const patchesRouter = new Hono<AppEnv>();

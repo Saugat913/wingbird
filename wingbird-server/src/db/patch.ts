@@ -1,6 +1,6 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { releaseTable } from "./schema";
-import { ARCHITECTURES } from "./types/architecture";
+import { ARCHITECTURES } from "../types/architectures";
 
 
 export const patchTable= sqliteTable("patch", {
