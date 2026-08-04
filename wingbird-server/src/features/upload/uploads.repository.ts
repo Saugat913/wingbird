@@ -68,8 +68,8 @@ export class UploadRepository {
             .select()
             .from(schema.uploadsTable)
             .where(and(
-                eq(schema.pendingUploadsTable.id, id),
-                eq(schema.pendingUploadsTable.appId, appId)
+                eq(schema.uploadsTable.id, id),
+                eq(schema.uploadsTable.appId, appId)
             ))
             .limit(1);
 

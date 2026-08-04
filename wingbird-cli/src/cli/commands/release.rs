@@ -31,42 +31,32 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let file_hash = blake3::hash(&file_bytes).to_hex().to_string();
 
     wait("Requesting upload URL...");
-    let (key, _url) = client
+    let (upload_id, _url) = client
         .upload_file(APK_PATH, APK_MIME, &config.app_id, &file_hash)
         .await?;
-    success(&format!("Upload complete (key: {})", key));
+    success(&format!("Upload complete (id: {})", upload_id));
 
     // Mark upload as completed on server
     wait("Finalizing upload...");
-    match client.mark_upload_complete(&key).await {
+    match client.mark_upload_complete(&config.app_id, &upload_id).await {
         Ok(()) => success("Upload finalized"),
         Err(e) => {
             error(&format!("Warning: failed to finalize upload: {}", e));
         }
     }
 
-    let file_name = std::path::Path::new(APK_PATH)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| anyhow::anyhow!("Invalid file name"))?
-        .to_string();
-
     let release_req = crate::api::CreateReleaseRequest {
-        upload_key: key.clone(),
-        release_version: pubsec.version,
+        version: pubsec.version,
         platform: platform.clone(),
         channel: channel.clone(),
-        file_hash,
-        file_name,
-        file_size,
-        file_type: APK_MIME.to_string(),
+        upload_id,
     };
 
     wait("Creating release record on server...");
-    let release_res = client.create_release(&config.app_id, &release_req).await?;
+    let release = client.create_release(&config.app_id, &release_req).await?;
     success(&format!(
         "Release created successfully (ID: {})",
-        release_res.release.id
+        release.id
     ));
 
     // Note this code is check for upload and download system

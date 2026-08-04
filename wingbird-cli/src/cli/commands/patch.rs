@@ -1,63 +1,50 @@
 use std::{io, path::Path};
 
 use crate::{
-    api::{ApiClient, CreatePatchRequest, PatchArtifactDto},
+    api::{ApiClient, CreatePatchRequest},
     config::{Config, Pubspec},
     ui::{info, success, wait},
     utils,
 };
 
 const SUPPORTED_ARCHITECTURES: &[&str] = &["arm64-v8a", "armeabi-v7a", "x86_64"];
+const APK_PATH: &str = "build/app/outputs/flutter-apk/app-release.apk";
 
 pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let config = Config::load()?;
     let pubspec = Pubspec::load()?;
     let client = ApiClient::from_storage(config.server_url).await?;
 
-    wait("Looking up base release on server...");
-    let releases = client
-        .get_releases(&config.app_id, &platform, &channel, &pubspec.version)
-        .await?;
-    let base_release = releases.first().ok_or_else(|| {
-        anyhow::anyhow!(
-            "No base release found for version {} ({}, {}). Run 'wingbird release' first.",
-            pubspec.version,
-            platform,
-            channel
-        )
-    })?;
-
     info("Building release APK...");
     utils::run_command("flutter", &["build", "apk", "--release"])?;
-    let new_apk_path = "build/app/outputs/flutter-apk/app-release.apk";
     anyhow::ensure!(
-        Path::new(new_apk_path).exists(),
+        Path::new(APK_PATH).exists(),
         "Local release APK not found"
     );
 
     wait("Downloading base release APK...");
     let base_apk_path = format!("base_{}_{}.apk", platform, pubspec.version);
     client
-        .download_file(&base_release.artifact_key, &base_apk_path)
+        .download_release(&config.app_id, &pubspec.version, &platform, &channel, &base_apk_path)
         .await?;
 
     let base_archs = utils::detect_architectures(&base_apk_path)?;
-    let new_archs = utils::detect_architectures(new_apk_path)?;
+    let new_archs = utils::detect_architectures(APK_PATH)?;
     let mut architectures = Vec::new();
-    for arch in base_archs {
-        if new_archs.contains(&arch) && SUPPORTED_ARCHITECTURES.contains(&arch.as_str()) {
-            architectures.push(arch);
+    for arch in &base_archs {
+        if new_archs.contains(arch) && SUPPORTED_ARCHITECTURES.contains(&arch.as_str()) {
+            architectures.push(arch.clone());
         }
     }
 
     anyhow::ensure!(
         !architectures.is_empty(),
         "No supported common architectures found with libapp.so in both base and new APKs (available base: {:?}, new: {:?})",
-        utils::detect_architectures(&base_apk_path).unwrap_or_default(),
-        utils::detect_architectures(new_apk_path).unwrap_or_default()
+        base_apk_path,
+        APK_PATH
     );
 
-    let mut patch_artifacts = Vec::new();
+    let mut created_patches = Vec::new();
 
     for arch in &architectures {
         info(&format!("Processing architecture: {}", arch));
@@ -67,7 +54,7 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
         let patch_bin_path = format!("patch_{}_{}.patch", arch, pubspec.version);
 
         utils::extract_libapp_so(&base_apk_path, arch, &base_so_path)?;
-        utils::extract_libapp_so(new_apk_path, arch, &new_so_path)?;
+        utils::extract_libapp_so(APK_PATH, arch, &new_so_path)?;
 
         info(&format!("Generating patch diff for {}...", arch));
         let base_bytes = std::fs::read(&base_so_path)?;
@@ -76,25 +63,29 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
         qbsdiff::Bsdiff::new(&base_bytes, &new_bytes).compare(io::Cursor::new(&mut patch_bytes))?;
         std::fs::write(&patch_bin_path, &patch_bytes)?;
 
-        let file_size = patch_bytes.len() as u64;
         let file_hash = blake3::hash(&patch_bytes).to_hex().to_string();
-        let file_name = format!("libapp-{}.patch", arch);
         let file_type = "application/octet-stream".to_string();
 
         wait(&format!("Uploading patch for {}...", arch));
-        let (upload_key, _url) = client
+        let (upload_id, _url) = client
             .upload_file(&patch_bin_path, &file_type, &config.app_id, &file_hash)
             .await?;
-        client.mark_upload_complete(&upload_key).await?;
+        client.mark_upload_complete(&config.app_id, &upload_id).await?;
 
-        patch_artifacts.push(PatchArtifactDto {
-            upload_key,
-            architecture: arch.to_string(),
-            file_hash,
-            file_name,
-            file_size,
-            file_type,
-        });
+        wait(&format!("Creating patch record for {}...", arch));
+        let patch = client
+            .create_patch(
+                &config.app_id,
+                &pubspec.version,
+                &platform,
+                &channel,
+                &CreatePatchRequest {
+                    architecture: arch.to_string(),
+                    upload_id,
+                },
+            )
+            .await?;
+        created_patches.push(patch);
 
         let _ = std::fs::remove_file(base_so_path);
         let _ = std::fs::remove_file(new_so_path);
@@ -103,18 +94,11 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
 
     let _ = std::fs::remove_file(base_apk_path);
 
-    wait("Creating patch record on server...");
-    let req = CreatePatchRequest {
-        artifacts: patch_artifacts,
-    };
-    let res = client.create_patch(&base_release.id, &req).await?;
-
     success(&format!(
-        "Successfully created patch #{} with {} architecture artifacts!",
-        res.patches.first().map(|p| p.patch_number).unwrap_or(1),
-        res.patches.len()
+        "Successfully created {} patch artifact(s) ({} architecture(s))!",
+        created_patches.len(),
+        architectures.len()
     ));
 
     Ok(())
 }
-

@@ -1,5 +1,4 @@
-use std::{fs::File, io::Read, path::Path};
-
+use std::{fs::File, io::{self, Read}, path::Path};
 use blake3::Hasher;
 
 
@@ -42,13 +41,13 @@ fn hash_file(path: impl AsRef<Path>) -> anyhow::Result<blake3::Hash> {
 pub fn extract_libapp_so(apk_path: &str, arch: &str, output_path: &str) -> anyhow::Result<()> {
     let file = std::fs::File::open(apk_path)?;
     let mut archive = zip::ZipArchive::new(file)?;
-    
+
     let entry_name = format!("lib/{}/libapp.so", arch);
     let mut zip_file = archive.by_name(&entry_name)
         .map_err(|_| anyhow::anyhow!("libapp.so not found in APK for architecture {}", arch))?;
 
     let mut out_file = std::fs::File::create(output_path)?;
-    std::io::copy(&mut zip_file, &mut out_file)?;
+    io::copy(&mut zip_file, &mut out_file)?;
     Ok(())
 }
 
@@ -56,7 +55,7 @@ pub fn detect_architectures(apk_path: &str) -> anyhow::Result<Vec<String>> {
     let file = std::fs::File::open(apk_path)?;
     let mut archive = zip::ZipArchive::new(file)?;
     let mut architectures = Vec::new();
-    
+
     for i in 0..archive.len() {
         let zip_file = archive.by_index(i)?;
         let name = zip_file.name();
@@ -67,6 +66,6 @@ pub fn detect_architectures(apk_path: &str) -> anyhow::Result<Vec<String>> {
             }
         }
     }
-    
+
     Ok(architectures)
 }

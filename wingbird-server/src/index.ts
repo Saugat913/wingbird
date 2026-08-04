@@ -19,6 +19,8 @@ import { releasesRouter } from "./features/releases/releases.routes";
 import { PatchesService } from "./features/patches/patches.service";
 import { PatchesRepository } from "./features/patches/patches.repository";
 import { patchesRouter } from "./features/patches/patches.routes";
+import { AppsRepository } from "./features/apps/apps.repository";
+import { AppService } from "./features/apps/apps.service";
 
 const app = new OpenAPIHono<AppEnv>();
 
@@ -29,21 +31,25 @@ app.use(logger());
 app.use("*", (c, next) => {
   const db = createDb(c.env.wingbird_db);
   c.set("db", db);
-  
+
+  const appRepo = new AppsRepository(db);
+  const appService = new AppService(appRepo);
+  c.set("appService", appService);
+
   const releaseRepo = new ReleasesRepository(db);
   const releaseService = new ReleasesService(releaseRepo);
   c.set("releaseService", releaseService);
 
-  const storageRepo= new StorageRepository({
-    accessKeyId:c.env.S3_ACCESS_KEY_ID,
-    secretAccessKey:c.env.S3_ACCESS_KEY,
-    bucket:c.env.S3_BUCKET,
-    expiresSeconds:c.env.S3_PRESIGNED_EXPIRE_SECONDS,
-    endpoint:c.env.S3_ENDPOINT,
-    region:c.env.S3_REGION,
+  const storageRepo = new StorageRepository({
+    accessKeyId: c.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: c.env.S3_ACCESS_KEY,
+    bucket: c.env.S3_BUCKET,
+    expiresSeconds: c.env.S3_PRESIGNED_EXPIRE_SECONDS,
+    endpoint: c.env.S3_ENDPOINT,
+    region: c.env.S3_REGION,
   });
-  const uploadRepo= new UploadRepository(db);
-  const uploadService= new UploadService(uploadRepo,storageRepo);
+  const uploadRepo = new UploadRepository(db);
+  const uploadService = new UploadService(uploadRepo, storageRepo);
   c.set("uploadService", uploadService);
 
   const patchRepo = new PatchesRepository(db);
@@ -84,7 +90,7 @@ apiRouter.get(
   "/docs",
   swaggerUI({
     url: "/openapi.json",
-    title:"Wingbird Api"
+    title: "Wingbird Api"
   }),
 );
 

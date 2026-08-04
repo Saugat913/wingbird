@@ -78,7 +78,7 @@ appsRouter.openapi(
     path: "/{appId}",
     summary: "Delete app",
     middleware: [
-      requireAppAccess,
+      requireAppAccess(),
     ],
     request: {
       params: z.object({

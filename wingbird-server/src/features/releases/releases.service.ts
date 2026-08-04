@@ -1,5 +1,5 @@
 import { schema } from "../../db/db";
-import { ConflictError, InternalServerError, NotFoundError } from "../../error";
+import { AppError, ConflictError, InternalServerError, NotFoundError } from "../../error";
 import { ReleaseIdentity } from "../../types/release-identity";
 import { ReleasesRepository } from "./releases.repository";
 
@@ -11,18 +11,24 @@ export class ReleasesService {
       uploadId: string;
     },
   ): Promise<schema.Release> {
+    try {
     const existing = await this.releasesRepo.getByReleaseIdentity(data);
 
     if (existing) {
       throw new ConflictError("Release already exists");
     }
-
     const newRelease= await this.releasesRepo.create(data);
     if(!newRelease){
       throw new InternalServerError("Failed to create the new release");
     }
-
     return newRelease;
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      console.error(error);
+      throw new InternalServerError("Failed to create the new release");
+    }
   }
 
   async getByReleaseIdentity(
