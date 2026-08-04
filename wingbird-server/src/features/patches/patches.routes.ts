@@ -55,7 +55,7 @@ patchesRouter.openapi(
     const params = c.req.valid("param");
     const query = c.req.valid("query");
 
-    const patches = await c.var.patchService.createBatch({
+    const patches = await c.var.patchService.create({
       appId: c.var.app.id,
       version: params.version,
       ...query,

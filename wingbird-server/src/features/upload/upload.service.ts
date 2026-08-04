@@ -59,10 +59,10 @@ export class UploadService {
         };
     }
 
-    async validateAndPromote(
+    async validatePendingUpload(
         id: string,
         appId: string,
-    ): Promise<schema.Upload> {
+    ): Promise<schema.PendingUpload> {
         const pending = await this.uploadRepo.getPendingById(
             id,
             appId,
@@ -78,28 +78,9 @@ export class UploadService {
 
         this.validateObject(pending, object);
 
-        const upload = await this.uploadRepo.createUpload({
-            appId: pending.appId,
-            objectKey: pending.objectKey,
-            fileHash: pending.fileHash,
-            fileName: pending.fileName,
-            fileSize: pending.fileSize,
-            fileType: pending.fileType,
-        });
-
-        if (!upload) {
-            throw new InternalServerError(
-                "Failed to finalize upload.",
-            );
-        }
-
-        await this.uploadRepo.deletePending(
-            pending.id,
-            pending.appId,
-        );
-
-        return upload;
+        return pending;
     }
+
 
     async getDownloadUrl(
         uploadId: string,

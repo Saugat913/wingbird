@@ -7,13 +7,31 @@ export class ReleasesRepository {
 
   async create(
     data: ReleaseIdentity & {
-      uploadId: string;
+      pendingUpload: schema.PendingUpload;
     },
   ): Promise<schema.Release | null> {
-    const [newRelease] = await this.db
-      .insert(schema.releasesTable)
-      .values(data)
-      .returning();
+    const newUploadUuid= crypto.randomUUID();
+    
+    const [[newRelease]] = await this.db.batch([
+      this.db
+        .insert(schema.releasesTable)
+        .values({
+          appId: data.appId,
+          version: data.version,
+          platform: data.platform,
+          channel: data.channel,
+          uploadId: newUploadUuid,
+        })
+        .returning(),
+      this.db
+        .insert(schema.uploadsTable)
+        .values({ ...data.pendingUpload, id: newUploadUuid })
+        .returning(),
+      this.db
+        .delete(schema.pendingUploadsTable)
+        .where(eq(schema.pendingUploadsTable.id, data.pendingUpload.id))
+        .returning()
+    ]);
 
     return newRelease ?? null;
   }

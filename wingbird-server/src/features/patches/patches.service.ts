@@ -13,7 +13,7 @@ export class PatchesService {
     private readonly uploadService: UploadService,
   ) { }
 
-  async createBatch(
+  async create(
     data: ReleaseIdentity & {
       patches: { architecture: Architecture; uploadId: string }[];
     },
@@ -24,25 +24,25 @@ export class PatchesService {
       throw new NotFoundError("Release");
     }
 
-    const created: schema.Patch[] = [];
-    for (const p of data.patches) {
-      const upload = await this.uploadService.validateAndPromote(
-        p.uploadId,
-        data.appId,
+    const rows = await Promise.all(data.patches.map(async (e)=>{
+      const pendingUpload = await this.uploadService.validatePendingUpload(e.uploadId, data.appId);
+      const patchNumber = await this.nextPatchNumber(
+        release.id,
+        e.architecture,
       );
-
-      const patchNumber = await this.nextPatchNumber(release.id, p.architecture);
-
-      const newPatch = await this.patchesRepo.create({
-        architecture: p.architecture,
-        patchNumber,
-        uploadId: upload.id,
+      
+      return {
+        architecture: e.architecture,
+        patchNumber:  patchNumber,
+        pendingUpload: pendingUpload,
         releaseId: release.id,
-      });
-      if(!newPatch){
-        throw new InternalServerError("Cannot create new patch");
-      }
-      created.push(newPatch);
+      };
+    }));
+
+    const created = await this.patchesRepo.create(rows);
+
+    if(!created){
+      throw new InternalServerError("Cannot create patches");
     }
 
     return created;
@@ -85,3 +85,4 @@ export class PatchesService {
     return latestPatch;
   }
 }
+

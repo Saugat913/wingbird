@@ -22,14 +22,14 @@ export class ReleasesService {
       throw new ConflictError("Release already exists");
     }
 
-    const upload = await this.uploadService.validateAndPromote(
+    const pendingUpload = await this.uploadService.validatePendingUpload(
       data.uploadId,
       data.appId,
     );
 
-    const newRelease= await this.releasesRepo.create({
+    const newRelease = await this.releasesRepo.create({
       ...data,
-      uploadId: upload.id,
+      pendingUpload,
     });
     if(!newRelease){
       throw new InternalServerError("Failed to create the new release");

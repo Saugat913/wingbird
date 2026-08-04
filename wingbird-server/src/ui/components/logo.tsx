@@ -1,6 +1,10 @@
 import type { JSX } from "hono/jsx";
 
-type LogoProps = JSX.IntrinsicElements['svg'];
+type LogoProps = {
+  class?: string;
+  style?: string | Record<string, string>;
+  [key: string]: any;
+};
 
 export default function Logo({
   class: className,

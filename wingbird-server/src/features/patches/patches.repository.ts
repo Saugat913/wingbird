@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { DB, schema } from "../../db/db";
 import { Architecture } from "../../types/architectures";
 
@@ -9,14 +9,34 @@ export class PatchesRepository {
     architecture: Architecture;
     patchNumber: number;
     releaseId: string;
-    uploadId: string;
-  }): Promise<schema.Patch | null> {
-    const [newPatch] = await this.db
-      .insert(schema.patchesTable)
-      .values(data)
-      .returning();
+    pendingUpload: schema.PendingUpload;
+  }[]): Promise<schema.Patch[] | null> {
+   
+    const newUploadUuid= crypto.randomUUID();
 
-    return newPatch ?? null;
+    const [newPatches] = await this.db.batch([
+        this.db
+        .insert(schema.patchesTable)
+        .values(data.map((d) => ({
+          architecture: d.architecture,
+          patchNumber: d.patchNumber,
+          releaseId: d.releaseId,
+          uploadId: newUploadUuid,
+        })))
+        .returning(),
+      this.db
+        .insert(schema.uploadsTable)
+        .values(data.map((d) => ({...d.pendingUpload, id: newUploadUuid})))
+        .returning(),
+      this.db
+        .delete(schema.pendingUploadsTable)
+        .where(inArray(
+          schema.pendingUploadsTable.id,
+          data.map((d) => d.pendingUpload.id)
+        ))
+        .returning()]);
+
+    return newPatches ?? null;
   }
 
   async getLatestPatchNumberByReleaseIdentity(
