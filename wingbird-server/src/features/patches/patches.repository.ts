@@ -11,28 +11,43 @@ export class PatchesRepository {
     releaseId: string;
     pendingUpload: schema.PendingUpload;
   }[]): Promise<schema.Patch[] | null> {
-   
-    const newUploadUuid= crypto.randomUUID();
 
-    const [newPatches] = await this.db.batch([
-        this.db
-        .insert(schema.patchesTable)
-        .values(data.map((d) => ({
+    const uploads = data.map((d) => {
+      const uploadId = crypto.randomUUID();
+      return {
+        patch: {
           architecture: d.architecture,
           patchNumber: d.patchNumber,
           releaseId: d.releaseId,
-          uploadId: newUploadUuid,
-        })))
+          uploadId,
+        },
+        upload: {
+          id: uploadId,
+          appId: d.pendingUpload.appId,
+          objectKey: d.pendingUpload.objectKey,
+          fileName: d.pendingUpload.fileName,
+          fileSize: d.pendingUpload.fileSize,
+          fileHash: d.pendingUpload.fileHash,
+          fileType: d.pendingUpload.fileType,
+        },
+        pendingId: d.pendingUpload.id,
+      };
+    });
+
+    const [newPatches] = await this.db.batch([
+      this.db
+        .insert(schema.patchesTable)
+        .values(uploads.map((d) => d.patch))
         .returning(),
       this.db
         .insert(schema.uploadsTable)
-        .values(data.map((d) => ({...d.pendingUpload, id: newUploadUuid})))
+        .values(uploads.map((d) => d.upload))
         .returning(),
       this.db
         .delete(schema.pendingUploadsTable)
         .where(inArray(
           schema.pendingUploadsTable.id,
-          data.map((d) => d.pendingUpload.id)
+          uploads.map((d) => d.pendingId)
         ))
         .returning()]);
 
