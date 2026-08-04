@@ -36,10 +36,6 @@ app.use("*", (c, next) => {
   const appService = new AppService(appRepo);
   c.set("appService", appService);
 
-  const releaseRepo = new ReleasesRepository(db);
-  const releaseService = new ReleasesService(releaseRepo);
-  c.set("releaseService", releaseService);
-
   const storageRepo = new StorageRepository({
     accessKeyId: c.env.S3_ACCESS_KEY_ID,
     secretAccessKey: c.env.S3_ACCESS_KEY,
@@ -52,8 +48,12 @@ app.use("*", (c, next) => {
   const uploadService = new UploadService(uploadRepo, storageRepo);
   c.set("uploadService", uploadService);
 
+  const releaseRepo = new ReleasesRepository(db);
+  const releaseService = new ReleasesService(releaseRepo, uploadService);
+  c.set("releaseService", releaseService);
+
   const patchRepo = new PatchesRepository(db);
-  const patchService = new PatchesService(patchRepo, releaseRepo);
+  const patchService = new PatchesService(patchRepo, releaseRepo, uploadService);
   c.set("patchService", patchService);
 
   return next();

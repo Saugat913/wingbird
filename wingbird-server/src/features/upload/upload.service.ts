@@ -59,7 +59,7 @@ export class UploadService {
         };
     }
 
-    async complete(
+    async validateAndPromote(
         id: string,
         appId: string,
     ): Promise<schema.Upload> {

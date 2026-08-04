@@ -1,7 +1,9 @@
 use std::{io, path::Path};
 
+use futures_util::future::try_join_all;
+
 use crate::{
-    api::{ApiClient, CreatePatchRequest},
+    api::{ApiClient, CreatePatchBatchRequest, CreatePatchRequest},
     config::{Config, Pubspec},
     ui::{info, success, wait},
     utils,
@@ -9,6 +11,7 @@ use crate::{
 
 const SUPPORTED_ARCHITECTURES: &[&str] = &["arm64-v8a", "armeabi-v7a", "x86_64"];
 const APK_PATH: &str = "build/app/outputs/flutter-apk/app-release.apk";
+const PATCH_MIME: &str = "application/octet-stream";
 
 pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let config = Config::load()?;
@@ -44,59 +47,72 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
         APK_PATH
     );
 
-    let mut created_patches = Vec::new();
+    wait("Building and uploading patches...");
+    let uploads: Vec<(String, String)> = try_join_all(architectures.iter().map(|arch| {
+        let client = client.clone();
+        let arch = arch.clone();
+        let base_apk_path = base_apk_path.clone();
+        let version = pubspec.version.clone();
+        let app_id = config.app_id.clone();
 
-    for arch in &architectures {
-        info(&format!("Processing architecture: {}", arch));
+        async move {
+            info(&format!("Processing architecture: {}", arch));
 
-        let base_so_path = format!("base_{}_{}.so", arch, pubspec.version);
-        let new_so_path = format!("new_{}_{}.so", arch, pubspec.version);
-        let patch_bin_path = format!("patch_{}_{}.patch", arch, pubspec.version);
+            let base_so_path = format!("base_{}_{}.so", arch, version);
+            let new_so_path = format!("new_{}_{}.so", arch, version);
+            let patch_bin_path = format!("patch_{}_{}.patch", arch, version);
 
-        utils::extract_libapp_so(&base_apk_path, arch, &base_so_path)?;
-        utils::extract_libapp_so(APK_PATH, arch, &new_so_path)?;
+            let ret_arch = arch.clone();
+            let patch_path_for_write = patch_bin_path.clone();
+            let file_hash = tokio::task::spawn_blocking(move || {
+                utils::extract_libapp_so(&base_apk_path, &arch, &base_so_path)?;
+                utils::extract_libapp_so(APK_PATH, &arch, &new_so_path)?;
 
-        info(&format!("Generating patch diff for {}...", arch));
-        let base_bytes = std::fs::read(&base_so_path)?;
-        let new_bytes = std::fs::read(&new_so_path)?;
-        let mut patch_bytes = Vec::new();
-        qbsdiff::Bsdiff::new(&base_bytes, &new_bytes).compare(io::Cursor::new(&mut patch_bytes))?;
-        std::fs::write(&patch_bin_path, &patch_bytes)?;
+                info(&format!("Generating patch diff for {}...", arch));
+                let base_bytes = std::fs::read(&base_so_path)?;
+                let new_bytes = std::fs::read(&new_so_path)?;
+                let mut patch_bytes = Vec::new();
+                qbsdiff::Bsdiff::new(&base_bytes, &new_bytes)
+                    .compare(io::Cursor::new(&mut patch_bytes))?;
+                std::fs::write(&patch_path_for_write, &patch_bytes)?;
 
-        let file_hash = blake3::hash(&patch_bytes).to_hex().to_string();
-        let file_type = "application/octet-stream".to_string();
+                let hash = blake3::hash(&patch_bytes).to_hex().to_string();
+                let _ = std::fs::remove_file(base_so_path);
+                let _ = std::fs::remove_file(new_so_path);
+                Ok::<_, anyhow::Error>(hash)
+            })
+            .await??;
 
-        wait(&format!("Uploading patch for {}...", arch));
-        let (upload_id, _url) = client
-            .upload_file(&patch_bin_path, &file_type, &config.app_id, &file_hash)
-            .await?;
-        client.mark_upload_complete(&config.app_id, &upload_id).await?;
+            let (upload_id, _url) = client
+                .upload_file(&patch_bin_path, PATCH_MIME, &app_id, &file_hash)
+                .await?;
 
-        wait(&format!("Creating patch record for {}...", arch));
-        let patch = client
-            .create_patch(
-                &config.app_id,
-                &pubspec.version,
-                &platform,
-                &channel,
-                &CreatePatchRequest {
-                    architecture: arch.to_string(),
-                    upload_id,
-                },
-            )
-            .await?;
-        created_patches.push(patch);
+            let _ = std::fs::remove_file(patch_bin_path);
 
-        let _ = std::fs::remove_file(base_so_path);
-        let _ = std::fs::remove_file(new_so_path);
-        let _ = std::fs::remove_file(patch_bin_path);
-    }
+            Ok::<_, anyhow::Error>((ret_arch, upload_id))
+        }
+    }))
+    .await?;
 
     let _ = std::fs::remove_file(base_apk_path);
 
+    wait("Creating patch records...");
+    let req = CreatePatchBatchRequest {
+        patches: uploads
+            .iter()
+            .map(|(architecture, upload_id)| CreatePatchRequest {
+                architecture: architecture.clone(),
+                upload_id: upload_id.clone(),
+            })
+            .collect(),
+    };
+    let created = client
+        .create_patches(&config.app_id, &pubspec.version, &platform, &channel, &req)
+        .await?;
+
     success(&format!(
         "Successfully created {} patch artifact(s) ({} architecture(s))!",
-        created_patches.len(),
+        created.len(),
         architectures.len()
     ));
 

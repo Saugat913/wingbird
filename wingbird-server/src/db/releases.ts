@@ -35,6 +35,7 @@ const releasesTable = sqliteTable(
       table.appId,
       table.channel,
       table.platform,
+      table.version,
       ),
     index("version_idx").on(
       table.version,

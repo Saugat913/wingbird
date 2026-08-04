@@ -1,5 +1,5 @@
 use crate::{
-    api::ApiClient, config::{Config, Pubspec}, ui::{error, info, link, success, wait}, utils,
+    api::ApiClient, config::{Config, Pubspec}, ui::{info, link, success, wait}, utils,
 };
 
 const APK_PATH: &str = "build/app/outputs/flutter-apk/app-release.apk";
@@ -35,15 +35,6 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
         .upload_file(APK_PATH, APK_MIME, &config.app_id, &file_hash)
         .await?;
     success(&format!("Upload complete (id: {})", upload_id));
-
-    // Mark upload as completed on server
-    wait("Finalizing upload...");
-    match client.mark_upload_complete(&config.app_id, &upload_id).await {
-        Ok(()) => success("Upload finalized"),
-        Err(e) => {
-            error(&format!("Warning: failed to finalize upload: {}", e));
-        }
-    }
 
     let release_req = crate::api::CreateReleaseRequest {
         version: pubsec.version,

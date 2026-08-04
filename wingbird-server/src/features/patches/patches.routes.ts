@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import AppEnv from "../../env";
-import { CreatePatchDto, GetPatchQuery, PatchDto } from "./patches.dto";
+import { CreatePatchesDto, GetPatchQuery, PatchDto } from "./patches.dto";
 import { PlatformSchema } from "../../types/platforms";
 import { ChannelSchema } from "../../types/channels";
 import { requireAuth } from "../../middleware/auth";
@@ -13,7 +13,7 @@ patchesRouter.openapi(
   createRoute({
     method: "post",
     path: "/apps/{appId}/releases/{version}/patches",
-    summary: "Create patch",
+    summary: "Create patches",
     middleware: [requireAuth, requireAppAccess()],
     request: {
       params: z.object({
@@ -28,17 +28,17 @@ patchesRouter.openapi(
         required: true,
         content: {
           "application/json": {
-            schema: CreatePatchDto,
+            schema: CreatePatchesDto,
           },
         },
       },
     },
     responses: {
       201: {
-        description: "Patch created",
+        description: "Patches created",
         content: {
           "application/json": {
-            schema: PatchDto,
+            schema: z.array(PatchDto),
           },
         },
       },
@@ -55,14 +55,14 @@ patchesRouter.openapi(
     const params = c.req.valid("param");
     const query = c.req.valid("query");
 
-    const patch = await c.var.patchService.create({
-      ...body,
+    const patches = await c.var.patchService.createBatch({
       appId: c.var.app.id,
       version: params.version,
       ...query,
+      patches: body.patches,
     });
 
-    return c.json(patch!, 201);
+    return c.json(patches, 201);
   },
 );
 

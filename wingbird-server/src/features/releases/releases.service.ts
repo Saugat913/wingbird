@@ -2,9 +2,13 @@ import { schema } from "../../db/db";
 import { AppError, ConflictError, InternalServerError, NotFoundError } from "../../error";
 import { ReleaseIdentity } from "../../types/release-identity";
 import { ReleasesRepository } from "./releases.repository";
+import { UploadService } from "../upload/upload.service";
 
 export class ReleasesService {
-  constructor(private readonly releasesRepo: ReleasesRepository) {}
+  constructor(
+    private readonly releasesRepo: ReleasesRepository,
+    private readonly uploadService: UploadService,
+  ) {}
 
   async create(
     data: ReleaseIdentity & {
@@ -17,7 +21,16 @@ export class ReleasesService {
     if (existing) {
       throw new ConflictError("Release already exists");
     }
-    const newRelease= await this.releasesRepo.create(data);
+
+    const upload = await this.uploadService.validateAndPromote(
+      data.uploadId,
+      data.appId,
+    );
+
+    const newRelease= await this.releasesRepo.create({
+      ...data,
+      uploadId: upload.id,
+    });
     if(!newRelease){
       throw new InternalServerError("Failed to create the new release");
     }

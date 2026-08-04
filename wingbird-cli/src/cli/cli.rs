@@ -40,14 +40,14 @@ enum Command {
     /// Release the new version
     Release {
         platform: Platform,
-        #[clap(default_value_t=Channel::Production)]
+        #[clap(default_value_t=Channel::Prod)]
         channel: Channel,
     },
 
     /// Patch the latest version
     Patch {
         platform: Platform,
-        #[clap(default_value_t=Channel::Production)]
+        #[clap(default_value_t=Channel::Prod)]
         channel: Channel,
     },
 }
@@ -60,15 +60,15 @@ enum Platform {
 
 #[derive(Debug, Clone, ValueEnum)]
 enum Channel {
-    Production,
-    Staging,
+    Prod,
+    Stage,
 }
 
 impl std::fmt::Display for Channel {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Channel::Production => write!(f, "prod"),
-            Channel::Staging => write!(f, "stage"),
+            Channel::Prod => write!(f, "prod"),
+            Channel::Stage => write!(f, "stage"),
         }
     }
 }

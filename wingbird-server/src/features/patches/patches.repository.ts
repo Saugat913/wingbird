@@ -39,7 +39,7 @@ export class PatchesRepository {
       .orderBy(desc(schema.patchesTable.patchNumber))
       .limit(1);
 
-    return latestPatchNumber.patchNumber ?? 0;
+    return latestPatchNumber?.patchNumber ?? 0;
   }
 
   async getLatestPatchByReleaseIdentity(

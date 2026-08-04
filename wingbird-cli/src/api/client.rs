@@ -7,11 +7,10 @@ use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
     api::{
-        CreateAppRequest, CreateAppResponse, CreatePatchRequest, CreateReleaseRequest,
-        PatchData, ReleaseData, UploadRequest, UploadResponse, User, WhoamiResponse,
-    },
-    storage,
+        CreateAppRequest, CreateAppResponse, CreatePatchBatchRequest, CreateReleaseRequest, PatchData, ReleaseData, UploadRequest, UploadResponse, User, WhoamiResponse,
+    }, storage,
 };
+
 
 pub struct ApiClient {
     client: Client,
@@ -156,23 +155,6 @@ impl ApiClient {
         Ok((upload_id, upload_url))
     }
 
-    pub async fn mark_upload_complete(&self, app_id: &str, upload_id: &str) -> anyhow::Result<()> {
-        let response = self
-            .client
-            .patch(
-                self.server_url
-                    .join(&format!("/api/apps/{app_id}/uploads/{upload_id}/complete"))?,
-            )
-            .bearer_auth(&self.token)
-            .timeout(std::time::Duration::from_secs(30))
-            .send()
-            .await?;
-
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        Self::ensure_ok(status, &body, "Failed to complete upload")
-    }
-
     pub async fn create_app(&self, name: &str) -> anyhow::Result<CreateAppResponse> {
         let response = self
             .client
@@ -243,14 +225,14 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn create_patch(
+    pub async fn create_patches(
         &self,
         app_id: &str,
         version: &str,
         platform: &str,
         channel: &str,
-        req: &CreatePatchRequest,
-    ) -> anyhow::Result<PatchData> {
+        req: &CreatePatchBatchRequest,
+    ) -> anyhow::Result<Vec<PatchData>> {
         let encoded_version = urlencoding::encode(version);
         let url = self.server_url.join(&format!(
             "/api/apps/{app_id}/releases/{encoded_version}/patches?platform={platform}&channel={channel}"
