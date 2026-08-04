@@ -7,6 +7,12 @@ pub struct CreatePatchRequest {
     pub upload_id: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePatchBatchRequest {
+    pub patches: Vec<CreatePatchRequest>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatchData {
