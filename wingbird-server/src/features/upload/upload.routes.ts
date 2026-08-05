@@ -6,12 +6,10 @@ import requireAppAccess from "../../middleware/app-access";
 
 const uploadRouter = new OpenAPIHono<AppEnv>();
 
-uploadRouter.use(requireAuth);
-
 uploadRouter.openapi(createRoute({
     method: "post",
     path: "/apps/{appId}/uploads",
-    middleware: [requireAppAccess()],
+    middleware: [requireAuth,requireAppAccess()],
     request: {
         params: z.object({
             appId: z.string()

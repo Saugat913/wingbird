@@ -6,13 +6,15 @@ import requireAppAccess from "../../middleware/app-access";
 
 export const appsRouter = new OpenAPIHono<AppEnv>();
 
-appsRouter.use(requireAuth);
 
 appsRouter.openapi(
   createRoute({
     method: "post",
     path: "/",
     summary: "Create app",
+    middleware: [
+      requireAuth,
+    ],
     request: {
       body: {
         required: true,
@@ -53,6 +55,9 @@ appsRouter.openapi(
     method: "get",
     path: "/",
     summary: "List apps",
+    middleware: [
+      requireAuth,
+    ],
     responses: {
       200: {
         description: "Apps",
@@ -78,6 +83,7 @@ appsRouter.openapi(
     path: "/{appId}",
     summary: "Delete app",
     middleware: [
+      requireAuth,
       requireAppAccess(),
     ],
     request: {
