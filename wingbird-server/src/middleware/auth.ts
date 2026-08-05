@@ -1,38 +1,23 @@
 import { createMiddleware } from "hono/factory";
-import { decodeProtectedHeader, importJWK, jwtVerify } from "jose";
-import { AppEnv } from "../env";
-import { HttpError } from "./error";
+import { UnauthorizedError } from "../error";
+import { initAuth } from "../lib/auth";
+import AppEnv from "../env";
 
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
-  const token = c.req.header("authorization")?.replace("Bearer ", "");
+  const auth = initAuth(c.env);
 
-  if (!token) {
-    throw new HttpError("Unauthorized", 401);
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers,
+  });
+
+  if (!session) {
+    throw new UnauthorizedError();
   }
 
-  try {
-    const { kid } = decodeProtectedHeader(token);
+  c.set("user", {
+    ...session.user,
+    image: session.user.image ?? null,
+  });
 
-    const jwk = await c.var.db.query.jwks.findFirst({
-      where: (t, { eq }) => eq(t.id, kid!),
-    });
-
-    if (!jwk) throw new Error("Invalid key");
-
-    const key = await importJWK(JSON.parse(jwk.publicKey), "EdDSA");
-
-    const { payload } = await jwtVerify(token, key);
-
-    c.set("user", {
-      id: String(payload.id ?? payload.sub),
-      name: String(payload.name),
-      email: String(payload.email),
-      image: payload.image as string | undefined,
-    });
-
-    await next();
-  } catch (err) {
-    console.error("Auth error:", err);
-    throw new HttpError("Unauthorized", 401);
-  }
+  await next();
 });

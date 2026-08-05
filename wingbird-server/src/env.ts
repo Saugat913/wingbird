@@ -1,8 +1,11 @@
-import type { DrizzleD1Database } from "drizzle-orm/d1";
-import * as schema from "./db/schema";
+import { DB, schema } from "./db/db";
+import { AppService } from "./features/apps/apps.service";
+import { PatchesService } from "./features/patches/patches.service";
+import { ReleasesService } from "./features/releases/releases.service";
+import { UploadService } from "./features/upload/upload.service";
 
 
-export type Bindings = {
+type Bindings = {
   wingbird_db: D1Database;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
@@ -13,20 +16,23 @@ export type Bindings = {
   S3_BUCKET: string;
   S3_ENDPOINT: string;
   S3_REGION: string;
-  S3_PRESIGNED_EXPIRE_SECONDS?: string;
+  S3_PRESIGNED_EXPIRE_SECONDS: number;
 };
 
-export type Variables = {
+type Variables = {
   db: DB;
   user: schema.User;
   app: schema.App;
-  release:schema.Release;
-  patch: schema.Patch;
+
+  appService: AppService;
+  releaseService:ReleasesService;
+  uploadService: UploadService;
+  patchService: PatchesService;
 };
 
-export type AppEnv = {
+type AppEnv = {
   Bindings: Bindings;
   Variables: Variables;
 };
 
-export type DB = DrizzleD1Database<typeof schema>;
+export default AppEnv;

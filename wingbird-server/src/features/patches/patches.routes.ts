@@ -1,112 +1,108 @@
-
-
-import { Hono } from "hono";
-import { AppEnv } from "../../env";
-import { requireReleaseAccess } from "../../middleware/release-access";
-import { patchTable, releaseTable } from "../../db/schema";
-import { desc, eq, and } from "drizzle-orm";
-import UploadService from "../upload/upload.service";
-import { HttpError } from "../../middleware/error";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import AppEnv from "../../env";
+import { CreatePatchesDto, GetPatchQuery, PatchDto } from "./patches.dto";
+import { PlatformSchema } from "../../types/platforms";
+import { ChannelSchema } from "../../types/channels";
 import { requireAuth } from "../../middleware/auth";
-import { Platforms } from "../../db/types/platforms";
-import { Architectures } from "../../db/types/architecture";
-import { Channels } from "../../db/types/channel";
-import requirePatchAccess from "../../middleware/patch-access";
-
-const patchesRouter = new Hono<AppEnv>();
-patchesRouter.use("*", requireAuth);
-
-patchesRouter.post("/:releaseId/patches", requireReleaseAccess, async (c) => {
-    const release = c.var.release;
-    const db = c.var.db;
-
-    const body = await c.req.json();
-
-    const { artifacts } = body;
-    const [latest] = await db.select({ patchNumber: patchTable.patchNumber }).from(patchTable).where(eq(patchTable.releaseId, release.id)).orderBy(desc(patchTable.patchNumber)).limit(1);
-
-    const newPatchNumber = (latest?.patchNumber ?? 0) + 1;
-    const uploadService = new UploadService(c.env);
+import requireAppAccess from "../../middleware/app-access";
 
 
-    const values = [];
+export const patchesRouter = new OpenAPIHono<AppEnv>();
 
-    for (const artifact of artifacts) {
-        const {  uploadKey, architecture, fileHash, fileName, fileSize, fileType } = artifact;
+patchesRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/apps/{appId}/releases/{version}/patches",
+    summary: "Create patches",
+    middleware: [requireAuth, requireAppAccess()],
+    request: {
+      params: z.object({
+        appId: z.string(),
+        version: z.string(),
+      }),
+      query: z.object({
+        platform: PlatformSchema,
+        channel: ChannelSchema,
+      }),
+      body: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: CreatePatchesDto,
+          },
+        },
+      },
+    },
+    responses: {
+      201: {
+        description: "Patches created",
+        content: {
+          "application/json": {
+            schema: z.array(PatchDto),
+          },
+        },
+      },
+      404: {
+        description: "Release not found",
+      },
+      409: {
+        description: "Patch already exists",
+      },
+    },
+  }),
+  async (c) => {
+    const body = c.req.valid("json");
+    const params = c.req.valid("param");
+    const query = c.req.valid("query");
 
-        await uploadService.validateArtifact(uploadKey, {
-            size: fileSize,
-            type: fileType,
-        });
+    const patches = await c.var.patchService.create({
+      appId: c.var.app.id,
+      version: params.version,
+      ...query,
+      patches: body.patches,
+    });
 
-        values.push({
-            architecture,
-            artifactKey: uploadKey,
-            fileHash,
-            fileName,
-            fileSize,
-            fileType,
-            releaseId: release.id,
-            patchNumber: newPatchNumber,
-        });
-    }
+    return c.json(patches, 201);
+  },
+);
 
-    const patches = await db.insert(patchTable).values(values).returning();
+patchesRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/apps/{appId}/releases/{version}/patches/latest/download",
+    summary: "Download latest patch",
+    middleware: [requireAppAccess({ requireOwnership: false })],
+    request: {
+      params: z.object({
+        appId: z.string(),
+        version: z.string(),
+      }),
+      query: GetPatchQuery,
+    },
+    responses: {
+      302: {
+        description: "Redirect to patch download",
+      },
+      404: {
+        description: "Patch not found",
+      },
+    },
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const query = c.req.valid("query");
 
-    return c.json({ patches }, 201);
-});
+    const patch = await c.var.patchService.getLatestPatch({
+      appId: c.var.app.id,
+      version: params.version,
+      ...query,
+    });
 
-patchesRouter.get("/:releaseId/patches", requireReleaseAccess, async (c) => {
-    const release = c.var.release;
-    const db = c.var.db;
-
-    const patches = await db.select().from(patchTable).where(eq(patchTable.releaseId, release.id));
-
-    return c.json({ patches });
-});
-
-
-
-const patchesStandaloneRouter = new Hono<AppEnv>();
-patchesStandaloneRouter.use("*", requireAuth);
-
-patchesStandaloneRouter.get("/", async (c) => {
-    const db = c.var.db;
-
-    const channel = c.req.query("channel") as Channels;
-    const platform = c.req.query("platform") as Platforms;
-    const architecture = c.req.query("architecture") as Architectures;
-
-    if (!channel || !platform || !architecture) {
-        throw new HttpError("Missing required query parameters", 400);
-    }
-
-
-    const patches = await db.select().from(patchTable).innerJoin(releaseTable, eq(patchTable.releaseId, releaseTable.id)).where(
-        and(
-            eq(releaseTable.channel, channel),
-            eq(releaseTable.platform, platform),
-            eq(patchTable.architecture, architecture),
-        )
+    const url = await c.var.uploadService.getDownloadUrl(
+      patch.uploadId,
+      c.var.app.id,
     );
 
-    return c.json({ patches });
-});
-
-patchesStandaloneRouter.get("/:patchId", requirePatchAccess, async (c) => {
-    const patch = c.var.patch;
-    return c.json({ patch });
-});
-
-patchesStandaloneRouter.delete("/:patchId", requirePatchAccess, async (c) => {
-    const patch = c.var.patch;
-    const db = c.var.db;
-
-    await db.delete(patchTable).where(eq(patchTable.id, patch.id));
-
-    return c.json({ message: "Patch deleted successfully" });
-});
-
-
-
-export { patchesRouter, patchesStandaloneRouter as standalonePatchesRouter };
+    return c.redirect(url, 302);
+  },
+);

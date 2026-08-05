@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, jwt } from "better-auth/plugins";
-import { AppEnv } from "../env";
+import AppEnv from "../env";
 import { createDb } from "./db";
 import * as schema from "../db/schema";
 
@@ -25,7 +25,6 @@ export const initAuth = (env: AppEnv["Bindings"]) => {
     },
     plugins: [
       bearer(),
-      jwt(),
     ],
   });
 };

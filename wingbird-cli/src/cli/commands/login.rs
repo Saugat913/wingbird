@@ -1,5 +1,5 @@
 use webbrowser::open;
-use crate::{api::ApiClient, server::Server, storage, ui::{banner, info, link, success}};
+use crate::{api::ApiClient, server::{Server}, storage, ui::{banner, info, link, success}};
 
 pub async fn run(session: Option<String>,server_url:String) -> anyhow::Result<()> {
     
