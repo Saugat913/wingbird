@@ -28,7 +28,8 @@ app.onError(errorHandler);
 
 app.use(logger());
 
-app.use("*", (c, next) => {
+const apiRouter = new OpenAPIHono<AppEnv>();
+apiRouter.use("*", (c, next) => {
   const db = createDb(c.env.wingbird_db);
   c.set("db", db);
 
@@ -59,8 +60,6 @@ app.use("*", (c, next) => {
   return next();
 });
 
-
-const apiRouter = new OpenAPIHono<AppEnv>();
 apiRouter.route("/auth", authRouter);
 apiRouter.route("/apps", appsRouter);
 apiRouter.route("/", uploadRouter);
