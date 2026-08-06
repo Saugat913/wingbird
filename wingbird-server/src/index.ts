@@ -88,7 +88,7 @@ apiRouter.doc("/openapi.json", {
 apiRouter.get(
   "/docs",
   swaggerUI({
-    url: "/openapi.json",
+    url: "/api/openapi.json",
     title: "Wingbird Api"
   }),
 );
