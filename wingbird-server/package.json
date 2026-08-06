@@ -9,6 +9,8 @@
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply wingbird_db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply wingbird_db --remote",
+    "env:push": "wrangler secret bulk .prod.vars",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
