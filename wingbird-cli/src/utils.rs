@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self, Read}, path::Path};
+use std::{fs::File, io::{self}, path::Path};
 use blake3::Hasher;
 
 
