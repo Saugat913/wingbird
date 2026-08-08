@@ -103,16 +103,11 @@
         ...query,
       });
 
-      const downloadUrl = await c.var.uploadService.getDownloadUrl(
-        patch.uploadId,
-        c.var.app.id,
-      );
-
       return c.json({
         id: patch.id,
         patchNumber: patch.patchNumber,
         libappHash: patch.libappHash,
-        downloadUrl,
+        patchHash: patch.patchHash,
       }, 200);
     },
   );

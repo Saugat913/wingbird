@@ -67,7 +67,7 @@ export class PatchesService {
       architecture: Architecture;
       currentPatchNumber: number;
     }
-  ): Promise<schema.Patch> {
+  ): Promise<schema.Patch & { patchHash: string, }> {
     const release = await this.releasesRepo.getByReleaseIdentity(data);
 
     if (!release) {
