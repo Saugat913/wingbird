@@ -22,21 +22,12 @@ pub fn compare_files(
     Ok(hash_file(a)? == hash_file(b)?)
 }
 
-fn hash_file(path: impl AsRef<Path>) -> anyhow::Result<blake3::Hash> {
+pub fn hash_file(path: impl AsRef<Path>) -> anyhow::Result<blake3::Hash> {
     let mut hasher = Hasher::new();
-    let mut file = File::open(path)?;
-    let mut buffer = [0u8; 8192];
-
-    loop {
-        let n = file.read(&mut buffer)?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buffer[..n]);
-    }
-
+    hasher.update_reader(File::open(path)?)?;
     Ok(hasher.finalize())
 }
+
 
 pub fn extract_libapp_so(apk_path: &str, arch: &str, output_path: &str) -> anyhow::Result<()> {
     let file = std::fs::File::open(apk_path)?;
@@ -51,21 +42,15 @@ pub fn extract_libapp_so(apk_path: &str, arch: &str, output_path: &str) -> anyho
     Ok(())
 }
 
-pub fn detect_architectures(apk_path: &str) -> anyhow::Result<Vec<String>> {
-    let file = std::fs::File::open(apk_path)?;
-    let mut archive = zip::ZipArchive::new(file)?;
-    let mut architectures = Vec::new();
+pub fn detect_architectures(apk: impl AsRef<Path>) -> anyhow::Result<Vec<String>> {
+    let archive = zip::ZipArchive::new(File::open(apk)?)?;
 
-    for i in 0..archive.len() {
-        let zip_file = archive.by_index(i)?;
-        let name = zip_file.name();
-        if name.starts_with("lib/") && name.ends_with("/libapp.so") {
-            let parts: Vec<&str> = name.split('/').collect();
-            if parts.len() == 3 {
-                architectures.push(parts[1].to_string());
-            }
-        }
-    }
-
-    Ok(architectures)
+    Ok(archive
+        .file_names()
+        .filter_map(|name| {
+            name.strip_prefix("lib/")
+                .and_then(|name| name.strip_suffix("/libapp.so"))
+                .map(str::to_owned)
+        })
+        .collect())
 }
