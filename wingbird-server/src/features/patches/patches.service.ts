@@ -93,7 +93,7 @@ export class PatchesService {
     data: {
       patchId: string;
     }
-  ): Promise<schema.Patch> {
+  ): Promise<schema.Patch & { patchHash: string, appId: string }> {
     const patch = await this.patchesRepo.getPatchById(data.patchId);
     if (!patch) {
       throw new NotFoundError("Patch");

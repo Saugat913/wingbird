@@ -128,7 +128,6 @@
         params: z.object({
           patchId: z.string(),
         }),
-        query: GetPatchQuery,
       },
       responses: {
         302: {
@@ -148,7 +147,7 @@
 
       const url = await c.var.uploadService.getDownloadUrl(
         patch.uploadId,
-        c.var.app.id,
+        patch.appId,
       );
 
       return c.redirect(url, 302);

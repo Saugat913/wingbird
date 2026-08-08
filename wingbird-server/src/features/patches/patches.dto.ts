@@ -44,9 +44,4 @@ export const GetPatchQuery = z.object({
   architecture: ArchitectureSchema,
   currentPatchNumber: z.coerce.number().int().default(0),
 });
-
-export const GetPatchByIdQuery = z.object({
-  channel: ChannelSchema,
-  platform: PlatformSchema,
-  architecture: ArchitectureSchema,
-});  
+ 

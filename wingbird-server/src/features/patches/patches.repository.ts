@@ -85,10 +85,20 @@ export class PatchesRepository {
       architecture: Architecture;
       currentPatchNumber: number;
     },
-  ): Promise<schema.Patch | null> {
+  ): Promise<(schema.Patch & { patchHash: string }) | null> {
     const [latestPatch] = await this.db
-      .select()
+      .select({
+        id: schema.patchesTable.id,
+        releaseId: schema.patchesTable.releaseId,
+        patchNumber: schema.patchesTable.patchNumber,
+        uploadId: schema.patchesTable.uploadId,
+        architecture: schema.patchesTable.architecture,
+        libappHash: schema.patchesTable.libappHash,
+        createdAt: schema.patchesTable.createdAt,
+        patchHash: schema.uploadsTable.fileHash,
+      })
       .from(schema.patchesTable)
+      .innerJoin(schema.uploadsTable, eq(schema.patchesTable.uploadId, schema.uploadsTable.id))
       .where(
         and(
           eq(schema.patchesTable.releaseId, data.releaseId),
@@ -102,10 +112,21 @@ export class PatchesRepository {
     return latestPatch ?? null;
   }
 
-  async getPatchById(patchId: string): Promise<schema.Patch | null> {
+  async getPatchById(patchId: string): Promise<(schema.Patch & { patchHash: string,appId:string }) | null> {
     const [patch] = await this.db
-      .select()
+      .select({
+        id: schema.patchesTable.id,
+        releaseId: schema.patchesTable.releaseId,
+        patchNumber: schema.patchesTable.patchNumber,
+        uploadId: schema.patchesTable.uploadId,
+        architecture: schema.patchesTable.architecture,
+        libappHash: schema.patchesTable.libappHash,
+        createdAt: schema.patchesTable.createdAt,
+        patchHash: schema.uploadsTable.fileHash,
+        appId: schema.uploadsTable.appId,
+      })
       .from(schema.patchesTable)
+      .innerJoin(schema.uploadsTable, eq(schema.patchesTable.uploadId, schema.uploadsTable.id))
       .where(eq(schema.patchesTable.id, patchId))
       .limit(1);
 
