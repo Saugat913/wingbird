@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct CreatePatchRequest {
     pub architecture: String,
     pub upload_id: String,
+    pub libapp_hash: String,
 }
 
 #[derive(Debug, Serialize)]
