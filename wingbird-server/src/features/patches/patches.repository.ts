@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { DB, schema } from "../../db/db";
 import { Architecture } from "../../types/architectures";
 
@@ -10,6 +10,7 @@ export class PatchesRepository {
     patchNumber: number;
     releaseId: string;
     pendingUpload: schema.PendingUpload;
+    libappHash: string;
   }[]): Promise<schema.Patch[] | null> {
 
     const uploads = data.map((d) => {
@@ -20,6 +21,7 @@ export class PatchesRepository {
           patchNumber: d.patchNumber,
           releaseId: d.releaseId,
           uploadId,
+          libappHash: d.libappHash,
         },
         upload: {
           id: uploadId,
@@ -81,6 +83,7 @@ export class PatchesRepository {
     data: {
       releaseId: string,
       architecture: Architecture;
+      currentPatchNumber: number;
     },
   ): Promise<schema.Patch | null> {
     const [latestPatch] = await this.db
@@ -90,11 +93,22 @@ export class PatchesRepository {
         and(
           eq(schema.patchesTable.releaseId, data.releaseId),
           eq(schema.patchesTable.architecture, data.architecture),
+          gt(schema.patchesTable.patchNumber, data.currentPatchNumber),
         ),
       )
       .orderBy(desc(schema.patchesTable.patchNumber))
       .limit(1);
 
     return latestPatch ?? null;
+  }
+
+  async getPatchById(patchId: string): Promise<schema.Patch | null> {
+    const [patch] = await this.db
+      .select()
+      .from(schema.patchesTable)
+      .where(eq(schema.patchesTable.id, patchId))
+      .limit(1);
+
+    return patch ?? null;
   }
 }

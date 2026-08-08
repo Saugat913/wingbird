@@ -15,7 +15,7 @@ export class PatchesService {
 
   async create(
     data: ReleaseIdentity & {
-      patches: { architecture: Architecture; uploadId: string }[];
+      patches: { architecture: Architecture; uploadId: string; libappHash: string; }[];
     },
   ): Promise<schema.Patch[]> {
     const release = await this.releasesRepo.getByReleaseIdentity(data);
@@ -36,6 +36,7 @@ export class PatchesService {
         patchNumber:  patchNumber,
         pendingUpload: pendingUpload,
         releaseId: release.id,
+        libappHash: e.libappHash,
       };
     }));
 
@@ -63,7 +64,8 @@ export class PatchesService {
 
   async getLatestPatch(
     data: ReleaseIdentity & {
-      architecture: Architecture
+      architecture: Architecture;
+      currentPatchNumber: number;
     }
   ): Promise<schema.Patch> {
     const release = await this.releasesRepo.getByReleaseIdentity(data);
@@ -76,6 +78,7 @@ export class PatchesService {
       await this.patchesRepo.getLatestPatchByReleaseIdentity({
         releaseId: release?.id,
         architecture: data.architecture,
+        currentPatchNumber: data.currentPatchNumber,
       });
 
     if(!latestPatch){
@@ -83,6 +86,19 @@ export class PatchesService {
     }
 
     return latestPatch;
+  }
+
+
+  async getPatchById(
+    data: {
+      patchId: string;
+    }
+  ): Promise<schema.Patch> {
+    const patch = await this.patchesRepo.getPatchById(data.patchId);
+    if (!patch) {
+      throw new NotFoundError("Patch");
+    }
+    return patch;
   }
 }
 
