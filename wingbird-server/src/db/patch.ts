@@ -14,6 +14,7 @@ const patchesTable = sqliteTable(
         onDelete:"cascade"
       }),
     patchNumber: integer("patch_number").notNull(),
+    libappHash: text("libapp_hash").notNull(),
 
     uploadId: text("upload_id").notNull(),
     architecture: text("architecture", { enum: ARCHITECTURES }).notNull(),

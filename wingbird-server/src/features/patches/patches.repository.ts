@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { DB, schema } from "../../db/db";
 import { Architecture } from "../../types/architectures";
 
@@ -10,6 +10,7 @@ export class PatchesRepository {
     patchNumber: number;
     releaseId: string;
     pendingUpload: schema.PendingUpload;
+    libappHash: string;
   }[]): Promise<schema.Patch[] | null> {
 
     const uploads = data.map((d) => {
@@ -20,6 +21,7 @@ export class PatchesRepository {
           patchNumber: d.patchNumber,
           releaseId: d.releaseId,
           uploadId,
+          libappHash: d.libappHash,
         },
         upload: {
           id: uploadId,
@@ -81,20 +83,53 @@ export class PatchesRepository {
     data: {
       releaseId: string,
       architecture: Architecture;
+      currentPatchNumber: number;
     },
-  ): Promise<schema.Patch | null> {
+  ): Promise<(schema.Patch & { patchHash: string }) | null> {
     const [latestPatch] = await this.db
-      .select()
+      .select({
+        id: schema.patchesTable.id,
+        releaseId: schema.patchesTable.releaseId,
+        patchNumber: schema.patchesTable.patchNumber,
+        uploadId: schema.patchesTable.uploadId,
+        architecture: schema.patchesTable.architecture,
+        libappHash: schema.patchesTable.libappHash,
+        createdAt: schema.patchesTable.createdAt,
+        patchHash: schema.uploadsTable.fileHash,
+      })
       .from(schema.patchesTable)
+      .innerJoin(schema.uploadsTable, eq(schema.patchesTable.uploadId, schema.uploadsTable.id))
       .where(
         and(
           eq(schema.patchesTable.releaseId, data.releaseId),
           eq(schema.patchesTable.architecture, data.architecture),
+          gt(schema.patchesTable.patchNumber, data.currentPatchNumber),
         ),
       )
       .orderBy(desc(schema.patchesTable.patchNumber))
       .limit(1);
 
     return latestPatch ?? null;
+  }
+
+  async getPatchById(patchId: string): Promise<(schema.Patch & { patchHash: string,appId:string }) | null> {
+    const [patch] = await this.db
+      .select({
+        id: schema.patchesTable.id,
+        releaseId: schema.patchesTable.releaseId,
+        patchNumber: schema.patchesTable.patchNumber,
+        uploadId: schema.patchesTable.uploadId,
+        architecture: schema.patchesTable.architecture,
+        libappHash: schema.patchesTable.libappHash,
+        createdAt: schema.patchesTable.createdAt,
+        patchHash: schema.uploadsTable.fileHash,
+        appId: schema.uploadsTable.appId,
+      })
+      .from(schema.patchesTable)
+      .innerJoin(schema.uploadsTable, eq(schema.patchesTable.uploadId, schema.uploadsTable.id))
+      .where(eq(schema.patchesTable.id, patchId))
+      .limit(1);
+
+    return patch ?? null;
   }
 }

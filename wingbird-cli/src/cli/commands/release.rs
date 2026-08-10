@@ -8,10 +8,14 @@ const APK_MIME: &str = "application/vnd.android.package-archive";
 pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let config = Config::load()?;
     let pubsec= Pubspec::load()?;
+
+    let server_url= config.server_url.clone();
+    let app_id= config.app_id.clone();
+
     let client = ApiClient::from_storage(config.server_url).await?;
 
     info("Building release APK...");
-    utils::run_command("flutter", &["build", "apk", "--release"])?;
+    utils::run_command("flutter", &["build", "apk", "--release",&format!("--dart-define=WINGBIRD_SERVER_URL={}", server_url),&format!("--dart-define=WINGBIRD_APP_ID={}", app_id)])?;
     success("APK built successfully");
     link("Output", APK_PATH);
 
