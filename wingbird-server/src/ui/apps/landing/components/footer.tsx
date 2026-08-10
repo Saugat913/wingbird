@@ -5,14 +5,13 @@ export default function Footer() {
     <footer class="section" style="padding-block:clamp(48px,6vw,80px)">
       <div class="wrap">
         <div class="flex flex-wrap items-center justify-between gap-8">
-          {/* Brand info */}
           <div class="flex flex-col gap-3">
             <div class="flex items-center gap-3">
               <Logo class="h-8 w-8 shrink-0 object-contain" />
               <span class="text-xl font-extrabold tracking-tight text-black">
                 Wingbird
               </span>
-              <span class="pill" style="margin-bottom:0;padding:3px 10px;font-size:10px">
+              <span class="badge" style="font-size:10px">
                 Apache-2.0
               </span>
             </div>
@@ -21,7 +20,6 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Links */}
           <div class="flex flex-wrap items-center gap-7 text-sm font-semibold text-neutral-700">
             <a
               href="https://github.com/Saugat913/wingbird"
@@ -53,10 +51,9 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Copyright strip */}
         <div class="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 pt-6 text-xs text-neutral-500">
           <span>© {new Date().getFullYear()} Wingbird. Free & open-source software.</span>
-          <span class="mono text-xs text-neutral-400">CLI & Cloud Server for Flutter</span>
+          <span class="font-mono text-xs text-neutral-400">CLI & Cloud Server for Flutter</span>
         </div>
       </div>
     </footer>

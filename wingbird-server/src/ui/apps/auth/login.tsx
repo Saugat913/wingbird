@@ -11,7 +11,7 @@ export default function LoginPage({
   return (
     <>
       <main className="grid min-h-screen lg:grid-cols-2">
-        <aside className="relative hidden lg:flex flex-col items-center justify-center overflow-hidden bg-[#09090b] px-12 py-10 text-white">
+        <aside className="relative hidden lg:flex flex-col items-center justify-center overflow-hidden bg-ink px-12 py-10 text-white">
           <div className="grid-lines"></div>
 
           <div className="relative z-10 max-w-md space-y-6 text-left">

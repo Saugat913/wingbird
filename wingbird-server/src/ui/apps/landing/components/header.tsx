@@ -34,7 +34,7 @@ export const CopyIcon = ({ class: cls = "w-4 h-4" }: { class?: string }) => (
 export default function Header() {
   return (
     <header class="site-header">
-      <div class="wrap" style="padding-block:18px">
+      <div class="wrap flex items-center justify-between" style="padding-block:18px">
         <a href="/" class="flex items-center gap-3">
           <Logo class="h-8 w-8 shrink-0" />
           <span class="text-[22px] font-extrabold tracking-tight text-zinc-900">Wingbird</span>

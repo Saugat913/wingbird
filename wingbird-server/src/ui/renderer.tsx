@@ -13,12 +13,10 @@ export const renderer = jsxRenderer(({ children, title, description }) => {
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         
-        {/* Favicon & Icons */}
         <link rel="icon" type="image/svg+xml" href="/logo.svg" />
         <link rel="alternate icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/logo.svg" />
 
-        {/* Primary Meta Tags */}
         <title>{pageTitle}</title>
         <meta name="title" content={pageTitle} />
         <meta name="description" content={pageDesc} />
@@ -27,7 +25,6 @@ export const renderer = jsxRenderer(({ children, title, description }) => {
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href={siteUrl} />
 
-        {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={siteUrl} />
         <meta property="og:title" content={pageTitle} />
@@ -35,14 +32,12 @@ export const renderer = jsxRenderer(({ children, title, description }) => {
         <meta property="og:image" content={ogImage} />
         <meta property="og:site_name" content="Wingbird" />
 
-        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content={siteUrl} />
         <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={pageDesc} />
         <meta name="twitter:image" content={ogImage} />
 
-        {/* Structured Data (JSON-LD) */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

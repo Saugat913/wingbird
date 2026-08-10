@@ -37,7 +37,7 @@ const steps = [
 export default function HowItWorks() {
   return (
     <section id="how-it-works" class="section section--surface">
-      <div class="wrap--block wrap">
+      <div class="wrap">
 
         <div class="mb-16 flex flex-wrap items-end justify-between gap-6" data-reveal>
           <div>

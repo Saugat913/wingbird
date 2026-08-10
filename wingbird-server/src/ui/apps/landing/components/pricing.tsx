@@ -19,7 +19,7 @@ const proFeatures = [
 export default function Pricing() {
   return (
     <section id="pricing" class="section section--surface">
-      <div class="wrap--block wrap">
+      <div class="wrap">
 
         <div class="mb-16 text-center" data-reveal>
           <span class="eyebrow mx-auto" style="justify-content:center">Pricing</span>
@@ -31,17 +31,16 @@ export default function Pricing() {
 
         <div class="mx-auto grid max-w-2xl grid-cols-1 gap-5 md:grid-cols-2" data-reveal>
 
-          {/* Beta — featured */}
           <div class="card pricing-featured flex flex-col p-8">
             <div class="mb-8">
               <div class="badge mb-5">
-                <span class="pulse-dot h-1.5 w-1.5 rounded-full bg-zinc-800"></span>
+                <span class="animate-pulse h-1.5 w-1.5 rounded-full bg-zinc-800"></span>
                 Current
               </div>
               <h3 class="mb-2 text-2xl font-bold tracking-tight text-zinc-900">Beta</h3>
               <div class="flex items-baseline gap-2 mb-2">
                 <span class="text-5xl font-extrabold tracking-tight text-zinc-900">$0</span>
-                <span class="mono text-xs text-zinc-400">/ month</span>
+                <span class="font-mono text-xs text-zinc-400">/ month</span>
               </div>
               <p class="text-xs leading-relaxed text-zinc-400">
                 No credit card. No lock-in. Free until iOS ships.
@@ -51,7 +50,7 @@ export default function Pricing() {
             <ul class="mb-8 flex flex-col gap-3 flex-1">
               {betaFeatures.map((f) => (
                 <li key={f} class="flex items-center gap-3 text-sm text-zinc-700">
-                  <span class="mono text-xs font-semibold text-zinc-900">✓</span>
+                  <span class="font-mono text-xs font-semibold text-zinc-900">✓</span>
                   {f}
                 </li>
               ))}
@@ -67,11 +66,10 @@ export default function Pricing() {
             </a>
           </div>
 
-          {/* Pro — coming soon */}
           <div class="card flex flex-col p-8 opacity-50">
             <div class="mb-8">
               <div class="badge mb-5">
-                <span class="mono text-[10px]">Coming soon</span>
+                <span class="font-mono text-[10px]">Coming soon</span>
               </div>
               <h3 class="mb-2 text-2xl font-bold tracking-tight text-zinc-900">Pro</h3>
               <div class="flex items-baseline gap-2 mb-2">
@@ -85,7 +83,7 @@ export default function Pricing() {
             <ul class="mb-8 flex flex-col gap-3 flex-1">
               {proFeatures.map((f) => (
                 <li key={f} class="flex items-center gap-3 text-sm text-zinc-400">
-                  <span class="mono text-xs text-zinc-300">·</span>
+                  <span class="font-mono text-xs text-zinc-300">·</span>
                   {f}
                 </li>
               ))}
@@ -102,7 +100,7 @@ export default function Pricing() {
           </div>
         </div>
 
-        <p class="mt-10 text-center mono text-xs text-zinc-400" data-reveal>
+        <p class="mt-10 text-center font-mono text-xs text-zinc-400" data-reveal>
           Self-hosting is free forever —{" "}
           <a
             href="https://github.com/Saugat913/wingbird"

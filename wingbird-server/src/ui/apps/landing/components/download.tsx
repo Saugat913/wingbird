@@ -25,7 +25,7 @@ const platforms = [
 export default function Download() {
   return (
     <section id="install" class="section">
-      <div class="wrap--block wrap">
+      <div class="wrap">
 
         <div class="mb-16 flex flex-wrap items-end justify-between gap-6" data-reveal>
           <div>
@@ -36,7 +36,7 @@ export default function Download() {
             href="https://github.com/Saugat913/wingbird/releases/latest"
             target="_blank"
             rel="noopener noreferrer"
-            class="mono text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors"
+            class="font-mono text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors"
           >
             All releases ↗
           </a>
@@ -51,7 +51,7 @@ export default function Download() {
                 </span>
                 <div>
                   <p class="font-semibold tracking-tight text-zinc-900">{p.name}</p>
-                  <p class="mono text-xs text-zinc-400 mt-0.5">{p.arch}</p>
+                  <p class="font-mono text-xs text-zinc-400 mt-0.5">{p.arch}</p>
                 </div>
               </div>
 

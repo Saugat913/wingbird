@@ -11,10 +11,8 @@ export default function CliWindow() {
   }, []);
 
   return (
-    <div class="mono flex w-full flex-col border border-neutral-800 bg-black text-neutral-200 overflow-hidden rounded-md shadow-2xl">
-      {/* Title Bar */}
-      <div class="flex items-center justify-between border-b border-neutral-850 bg-[#0c0c0c] px-4 py-3 text-xs">
-        {/* Traffic lights — monochrome squares */}
+    <div class="font-mono flex w-full flex-col border border-neutral-800 bg-black text-neutral-200 overflow-hidden rounded-md shadow-2xl">
+      <div class="flex items-center justify-between border-b border-neutral-800 bg-[#0c0c0c] px-4 py-3 text-xs">
         <div class="flex gap-1.5">
           <span class="h-2.5 w-2.5 bg-neutral-700 rounded-sm"></span>
           <span class="h-2.5 w-2.5 bg-neutral-700 rounded-sm"></span>
@@ -28,7 +26,6 @@ export default function CliWindow() {
         <div class="w-12"></div>
       </div>
 
-      {/* Terminal Content */}
       <div class="flex h-[380px] sm:h-[420px] flex-col justify-start bg-black p-4 sm:p-6 text-xs sm:text-sm overflow-x-auto overflow-y-auto">
         {step === 1 && (
           <div class="space-y-2 min-w-[300px]">
@@ -95,7 +92,6 @@ export default function CliWindow() {
           </div>
         )}
 
-        {/* Step indicator footer */}
         <div class="mt-auto pt-5 flex items-center justify-between border-t border-neutral-900 text-[11px] text-neutral-600">
           <span class="tracking-widest font-mono">STEP {step}/3</span>
           <div class="flex gap-1.5">

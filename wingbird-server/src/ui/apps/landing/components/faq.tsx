@@ -16,7 +16,7 @@ const faqs = [
 export default function FAQ() {
   return (
     <section id="faq" class="section">
-      <div class="wrap--block wrap">
+      <div class="wrap">
         <div data-reveal class="mb-14">
           <span class="eyebrow">FAQ</span>
           <h2 class="display">Common questions.</h2>
@@ -33,7 +33,7 @@ export default function FAQ() {
                 <span class="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl">
                   {faq.q}
                 </span>
-                <span class="chevron flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 transition-colors group-open:border-zinc-900 group-open:bg-zinc-900 group-open:text-white">
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 transition-all duration-200 group-open:rotate-45 group-open:border-zinc-900 group-open:bg-zinc-900 group-open:text-white">
                   <svg class="h-3.5 w-3.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                     <path d="M6 1v10M1 6h10"></path>
                   </svg>
