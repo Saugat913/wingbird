@@ -1,5 +1,5 @@
 import { schema } from "../../db/db";
-import { InternalServerError, NotFoundError } from "../../error";
+import { BadRequestError, InternalServerError, NotFoundError } from "../../error";
 import { ReleaseIdentity } from "../../types/release-identity";
 import { ReleasesRepository } from "../releases/releases.repository";
 import { Architecture } from "../../types/architectures";
@@ -7,11 +7,16 @@ import { PatchesRepository } from "./patches.repository";
 import { UploadService } from "../upload/upload.service";
 
 export class PatchesService {
+  private readonly maxPatchesPerRelease: number;
+
   constructor(
     private readonly patchesRepo: PatchesRepository,
     private readonly releasesRepo: ReleasesRepository,
     private readonly uploadService: UploadService,
-  ) { }
+    maxPatchesPerRelease?: number | string,
+  ) {
+    this.maxPatchesPerRelease = maxPatchesPerRelease ? Number(maxPatchesPerRelease) : 3;
+  }
 
   async create(
     data: ReleaseIdentity & {
@@ -30,6 +35,10 @@ export class PatchesService {
         release.id,
         e.architecture,
       );
+
+      if (patchNumber > this.maxPatchesPerRelease) {
+        throw new BadRequestError(`Beta limit reached: Maximum of ${this.maxPatchesPerRelease} patches per release allowed.`);
+      }
       
       return {
         architecture: e.architecture,

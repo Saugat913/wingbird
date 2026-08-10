@@ -17,6 +17,8 @@ type Bindings = {
   S3_ENDPOINT: string;
   S3_REGION: string;
   S3_PRESIGNED_EXPIRE_SECONDS: number;
+  MAX_RELEASES_PER_APP?: number | string;
+  MAX_PATCHES_PER_RELEASE?: number | string;
 };
 
 type Variables = {
