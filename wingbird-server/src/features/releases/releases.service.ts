@@ -1,14 +1,19 @@
 import { schema } from "../../db/db";
-import { AppError, ConflictError, InternalServerError, NotFoundError } from "../../error";
+import { AppError, BadRequestError, ConflictError, InternalServerError, NotFoundError } from "../../error";
 import { ReleaseIdentity } from "../../types/release-identity";
 import { ReleasesRepository } from "./releases.repository";
 import { UploadService } from "../upload/upload.service";
 
 export class ReleasesService {
+  private readonly maxReleasesPerApp: number;
+
   constructor(
     private readonly releasesRepo: ReleasesRepository,
     private readonly uploadService: UploadService,
-  ) {}
+    maxReleasesPerApp?: number | string,
+  ) {
+    this.maxReleasesPerApp = maxReleasesPerApp ? Number(maxReleasesPerApp) : 3;
+  }
 
   async create(
     data: ReleaseIdentity & {
@@ -20,6 +25,11 @@ export class ReleasesService {
 
     if (existing) {
       throw new ConflictError("Release already exists");
+    }
+
+    const currentCount = await this.releasesRepo.countByAppId(data.appId);
+    if (currentCount >= this.maxReleasesPerApp) {
+      throw new BadRequestError(`Beta limit reached: Maximum of ${this.maxReleasesPerApp} releases per app allowed on beta cloud service.`);
     }
 
     const pendingUpload = await this.uploadService.validatePendingUpload(

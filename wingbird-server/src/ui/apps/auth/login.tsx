@@ -11,20 +11,18 @@ export default function LoginPage({
   return (
     <>
       <main className="grid min-h-screen lg:grid-cols-2">
-        <aside className="hidden lg:flex flex-col justify-center items-center bg-neutral-900 px-12 py-10 text-white">
-          <div className="max-w-sm space-y-8">
-            <Logo/>
+        <aside className="relative hidden lg:flex flex-col items-center justify-center overflow-hidden bg-ink px-12 py-10 text-white">
+          <div className="grid-lines"></div>
 
-            <div className="space-y-3">
-              <h2 className="text-3xl font-semibold tracking-tight">
-                Welcome to Wingbird
-              </h2>
+          <div className="relative z-10 max-w-md space-y-6 text-left">
+            <Logo class="h-40 w-40 invert" />
 
-              <p className="text-neutral-400 leading-relaxed">
-                Start delivering secure over-the-air updates for your Flutter
-                apps.
-              </p>
-          </div>
+            <h2 className="text-3xl font-semibold tracking-tight text-white">Welcome back,</h2>
+            <p className="text-lg text-neutral-400">
+              Nice to see you again — log in to keep patching your Flutter apps in seconds.
+            </p>
+
+            <a href="/" className="btn btn-ghost-dark">← Back to homepage</a>
           </div>
         </aside>
 
@@ -43,7 +41,7 @@ export default function LoginPage({
             <button
               id="google-login"
               data-callback-url={callbackUrl ?? ""}
-              className="flex w-full items-center justify-center gap-2 rounded-md bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800"
+              className="btn btn-primary flex w-full items-center justify-center"
             >
               <img
                 src="/google_logo.svg"

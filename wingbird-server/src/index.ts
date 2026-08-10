@@ -50,11 +50,11 @@ apiRouter.use("*", (c, next) => {
   c.set("uploadService", uploadService);
 
   const releaseRepo = new ReleasesRepository(db);
-  const releaseService = new ReleasesService(releaseRepo, uploadService);
+  const releaseService = new ReleasesService(releaseRepo, uploadService, c.env.MAX_RELEASES_PER_APP);
   c.set("releaseService", releaseService);
 
   const patchRepo = new PatchesRepository(db);
-  const patchService = new PatchesService(patchRepo, releaseRepo, uploadService);
+  const patchService = new PatchesService(patchRepo, releaseRepo, uploadService, c.env.MAX_PATCHES_PER_RELEASE);
   c.set("patchService", patchService);
 
   return next();

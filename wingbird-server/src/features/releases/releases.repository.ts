@@ -54,4 +54,13 @@ export class ReleasesRepository {
 
     return release ?? null;
   }
+
+  async countByAppId(appId: string): Promise<number> {
+    const releases = await this.db
+      .select()
+      .from(schema.releasesTable)
+      .where(eq(schema.releasesTable.appId, appId));
+
+    return releases.length;
+  }
 }
