@@ -118,7 +118,6 @@
       method: "get",
       path: "/patches/{patchId}/download",
       summary: "Download the patch",
-      middleware: [requireAppAccess({ requireOwnership: false })],
       request: {
         params: z.object({
           patchId: z.string(),
