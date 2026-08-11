@@ -1,5 +1,4 @@
-use std::{fs::File, io::Read, path::Path};
-
+use std::{fs::File, io::{self}, path::Path};
 use blake3::Hasher;
 
 
@@ -23,18 +22,35 @@ pub fn compare_files(
     Ok(hash_file(a)? == hash_file(b)?)
 }
 
-fn hash_file(path: impl AsRef<Path>) -> anyhow::Result<blake3::Hash> {
+pub fn hash_file(path: impl AsRef<Path>) -> anyhow::Result<blake3::Hash> {
     let mut hasher = Hasher::new();
-    let mut file = File::open(path)?;
-    let mut buffer = [0u8; 8192];
-
-    loop {
-        let n = file.read(&mut buffer)?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buffer[..n]);
-    }
-
+    hasher.update_reader(File::open(path)?)?;
     Ok(hasher.finalize())
+}
+
+
+pub fn extract_libapp_so(apk_path: &str, arch: &str, output_path: &str) -> anyhow::Result<()> {
+    let file = std::fs::File::open(apk_path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+
+    let entry_name = format!("lib/{}/libapp.so", arch);
+    let mut zip_file = archive.by_name(&entry_name)
+        .map_err(|_| anyhow::anyhow!("libapp.so not found in APK for architecture {}", arch))?;
+
+    let mut out_file = std::fs::File::create(output_path)?;
+    io::copy(&mut zip_file, &mut out_file)?;
+    Ok(())
+}
+
+pub fn detect_architectures(apk: impl AsRef<Path>) -> anyhow::Result<Vec<String>> {
+    let archive = zip::ZipArchive::new(File::open(apk)?)?;
+
+    Ok(archive
+        .file_names()
+        .filter_map(|name| {
+            name.strip_prefix("lib/")
+                .and_then(|name| name.strip_suffix("/libapp.so"))
+                .map(str::to_owned)
+        })
+        .collect())
 }
