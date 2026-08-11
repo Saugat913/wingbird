@@ -1,97 +1,138 @@
-import { AwsClient } from "aws4fetch";
-import { AppEnv } from "../../env";
 
-class UploadService {
-    private client: AwsClient;
-    private endpoint: string;
-    private bucket: string;
-    private expireSeconds: number;
-
-    constructor(env: AppEnv["Bindings"]) {
-        this.client = this.getS3Client(env);
-        this.endpoint = env.S3_ENDPOINT;
-        this.bucket = env.S3_BUCKET;
-        this.expireSeconds = env.S3_PRESIGNED_EXPIRE_SECONDS ? Number(env.S3_PRESIGNED_EXPIRE_SECONDS) : 900;
-    }
+import { schema } from "../../db/db";
+import {
+    InternalServerError,
+    NotFoundError,
+    BadRequestError,
+} from "../../error";
+import { UploadMetadata } from "../../types/upload-metadata";
+import {
+    ObjectMetadata,
+    StorageRepository,
+} from "./storage.repository";
+import { UploadRepository } from "./uploads.repository";
 
 
-    private getS3Client(env: AppEnv["Bindings"]) {
-        return new AwsClient({
-            accessKeyId: env.S3_ACCESS_KEY_ID!,
-            secretAccessKey: env.S3_ACCESS_KEY!,
-            region: env.S3_REGION,
-            service: 's3',
+const ALLOWED_CONTENT_TYPES = new Set([
+    "application/vnd.android.package-archive",
+    "application/octet-stream",
+]);
+
+export class UploadService {
+    constructor(
+        private readonly uploadRepo: UploadRepository,
+        private readonly storageRepo: StorageRepository,
+    ) { }
+
+    async createPending(
+        appId: string,
+        metadata: UploadMetadata,
+    ): Promise<{
+        id: string;
+        uploadUrl: string;
+    }> {
+        const objectKey = `apps/${appId}/uploads/${crypto.randomUUID()}`;
+
+        if (!ALLOWED_CONTENT_TYPES.has(metadata.fileType)) {
+            throw new BadRequestError("Invalid file type: unsupported MIME type");
+        }
+
+        const pending = await this.uploadRepo.createPending({
+            appId,
+            ...metadata,
+            objectKey,
         });
-    }
 
-
-    getS3ObjectUrl(key: string) {
-        const endpointHost = this.endpoint.replace(/^https?:\/\//, '');
-        return new URL(`https://${this.bucket}.${endpointHost}/${key}`);
-    }
-
-    async uploadFile(key: string, fileType: string, fileSize: number) {
-
-        const targetUrl = this.getS3ObjectUrl(key);
-        targetUrl.searchParams.set('X-Amz-Expires', this.expireSeconds.toString());
-
-        const signedRequest = await this.client.sign(
-            new Request(targetUrl.toString(), {
-                method: 'PUT',
-                headers: { 'Content-Type': fileType, 'Content-Length': fileSize.toString() },
-            }),
-            {
-                method: 'PUT',
-                aws: { signQuery: true },
-            }
-        );
-
-        return { key, url: signedRequest.url };
-    }
-
-    async getSignedUrl(key: string) {
-        const targetUrl = this.getS3ObjectUrl(key);
-        targetUrl.searchParams.set('X-Amz-Expires', this.expireSeconds.toString());
-        const signedRequest = await this.client.sign(
-            new Request(targetUrl.toString(), { method: 'GET' }),
-            {
-                method: 'GET',
-                aws: { signQuery: true },
-            }
-        );
-
-
-        return signedRequest.url;
-    }
-
-    async deleteObject(key: string) {
-
-    }
-    async headObject(key: string) {
-        const targetUrl = this.getS3ObjectUrl(key);
-        const signedRequest = await this.client.sign(
-            new Request(targetUrl.toString(), { method: 'HEAD' }),
-            {
-                method: 'HEAD',
-                aws: { signQuery: true },
-            }
-        );
-        return await fetch(signedRequest);
-    }
-
-    async validateArtifact(key: string, file: { size: number, type: string }): Promise<boolean> {
-        const response = await this.headObject(key);
-        const contentLength = Number(response.headers.get("Content-Length"));
-        const contentType = response.headers.get("Content-Type");
-        const etag = response.headers.get("ETag");
-        if (contentLength !== file.size || contentType !== file.type) {
-            throw new Error('Artifact validation failed');
+        if (!pending) {
+            throw new InternalServerError("Failed to create upload.");
         }
-        if (!response.ok) {
-            throw new Error('Artifact not found');
+
+        const uploadUrl = await this.storageRepo.createUploadUrl(
+            objectKey,
+            metadata.fileType,
+            metadata.fileSize,
+        );
+
+        return {
+            id: pending.id,
+            uploadUrl,
+        };
+    }
+
+    async validatePendingUpload(
+        id: string,
+        appId: string,
+    ): Promise<schema.PendingUpload> {
+        const pending = await this.uploadRepo.getPendingById(
+            id,
+            appId,
+        );
+
+        if (!pending) {
+            throw new NotFoundError("Pending upload");
         }
-        return response.ok;
+
+        const object = await this.storageRepo.headObject(
+            pending.objectKey,
+        );
+
+        this.validateObject(pending, object);
+
+        return pending;
+    }
+
+
+    async getDownloadUrl(
+        uploadId: string,
+        appId: string,
+    ): Promise<string> {
+        const upload = await this.uploadRepo.getUploadById(
+            uploadId,
+            appId,
+        );
+
+        if (!upload) {
+            throw new NotFoundError("Upload");
+        }
+
+        const downloadUrl = await this.storageRepo.createDownloadUrl(
+            upload.objectKey,
+        );
+        if (!downloadUrl) {
+            throw new InternalServerError("Cannot create download url")
+        }
+        return downloadUrl;
+    }
+
+    private validateObject(
+        expected: UploadMetadata,
+        actual: ObjectMetadata | null,
+    ): void {
+        if (!actual) {
+            throw new BadRequestError(
+                "Uploaded object not found.",
+            );
+        }
+
+        if (actual.size !== expected.fileSize) {
+            throw new BadRequestError(
+                "Uploaded file size does not match."
+            );
+        }
+
+        if (actual.contentType !== expected.fileType) {
+            throw new BadRequestError(
+                "Uploaded file type does not match."
+            );
+        }
+
+        if (
+            actual.sha256 &&
+            actual.sha256 !== expected.fileHash
+        ) {
+            throw new BadRequestError(
+                "Uploaded file checksum does not match."
+            );
+        }
     }
 }
-
-export default UploadService;

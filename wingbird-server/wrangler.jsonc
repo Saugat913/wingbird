@@ -1,11 +1,11 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "wingbird-server",
+	"name": "wingbird",
 	"compatibility_date": "2025-08-03",
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
-	"main": "./src/index.tsx",
+	"main": "./src/index.ts",
 	"d1_databases": [
 		{
 			"binding": "wingbird_db",

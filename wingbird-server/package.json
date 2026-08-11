@@ -8,15 +8,20 @@
     "deploy": "$npm_execpath run build && wrangler deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply wingbird_db --local"
+    "db:migrate:local": "wrangler d1 migrations apply wingbird_db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply wingbird_db --remote",
+    "env:push": "wrangler secret bulk .prod.vars",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@hono/swagger-ui": "^0.6.1",
+    "@hono/zod-openapi": "^1.5.1",
     "@tailwindcss/vite": "^4.3.3",
     "aws4fetch": "^1.0.20",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.31",
-    "tailwindcss": "^4.3.3"
+    "drizzle-zod": "^0.8.3",
+    "hono": "^4.12.31"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.44.0",

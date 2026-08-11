@@ -25,13 +25,4 @@ export const authClient = {
 
     return data.session.token;
   },
-
-  async getToken() {
-    const { data, error } = await auth.token();
-
-    if (error) throw new Error(error.message);
-    if (!data) throw new Error("JWT not found");
-
-    return data.token;
-  },
 };

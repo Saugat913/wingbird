@@ -1,9 +1,8 @@
-
 import { useEffect, useState } from "hono/jsx";
 import Logo from "../../components/logo";
 import { authClient } from "../../lib/auth-client";
 import { Script } from "vite-ssr-components/hono";
-
+import { CopyIcon } from "../landing/components/header";
 
 export function AuthSuccess() {
   const [status, setStatus] = useState<
@@ -11,44 +10,46 @@ export function AuthSuccess() {
   >("loading");
 
   const [message, setMessage] = useState(
-    "Authenticating your CLI session..."
+    "Verifying your session..."
   );
+
+  const [token, setToken] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function sendTokenToCli() {
-      console.log("effect started");
       const params = new URLSearchParams(window.location.search);
       const callbackUrl = params.get("callbackUrl");
       try {
-        
-        if (!callbackUrl) {
-          setStatus("error");
-          setMessage(
-            "Missing callback URL. Please try logging in again from the CLI."
-          );
-          return;
-        }
-
         const sessionToken = await authClient.getSessionToken();
+        setToken(sessionToken);
 
-        const res = await fetch(`${callbackUrl}/callback`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            token: sessionToken,
-          }),
-        });
+        if (callbackUrl) {
+          const res = await fetch(`${callbackUrl}/callback`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              token: sessionToken,
+            }),
+          });
 
-        if (!res.ok) {
-          throw new Error(`CLI callback failed: ${res.status}`);
+          if (!res.ok) {
+            throw new Error(`CLI callback failed: ${res.status}`);
+          }
+
+          setStatus("success");
+          setMessage(
+            "Your terminal is connected. You can close this window."
+          );
+        } else {
+          setStatus("success");
+          setMessage(
+            "You're signed in. You can close this window."
+          );
         }
-
-        setStatus("success");
-        setMessage(
-          "You can safely close this window and return to your terminal."
-        );
       } catch (err) {
         setStatus("error");
         setMessage(
@@ -56,29 +57,49 @@ export function AuthSuccess() {
             ? err.message
             : "Authentication failed. Please try again."
         );
+        if (err instanceof Error && /Session not found/.test(err.message)) {
+          setNeedsLogin(true);
+          setMessage("You need to sign in before continuing.");
+        }
       }
     }
 
     sendTokenToCli();
   }, []);
 
+  async function copyToken() {
+    if (!token) return;
+    try {
+      await navigator.clipboard.writeText(token);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = token;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+
   return (
-    <main class="flex min-h-screen flex-col items-center justify-center bg-white px-6 py-12 text-center">
-      <div class="w-full max-w-sm space-y-8 rounded-xl border border-neutral-100 bg-neutral-50/50 p-8 shadow-sm">
+    <main class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-white px-6 py-12">
+      <div class="grid-lines"></div>
+
+      <div class="relative z-10 w-full max-w-md space-y-6 text-center">
         <div class="flex justify-center">
-          <Logo />
+          <Logo class="h-20 w-20" />
         </div>
 
-        <div class="space-y-2">
+        <div class="space-y-3">
           <h1 class="text-2xl font-semibold tracking-tight text-neutral-900">
-            {status === "loading" && "Linking your account..."}
-            {status === "success" && "Authentication Successful!"}
-            {status === "error" && "Something went wrong"}
+            {status === "loading" && "Verifying your session..."}
+            {status === "success" && "You're all set."}
+            {status === "error" && (needsLogin ? "Not signed in" : "Something went wrong")}
           </h1>
 
-          <p class="text-sm leading-relaxed text-neutral-500">
-            {message}
-          </p>
+          <p class="lead mx-auto max-w-sm">{message}</p>
         </div>
 
         {status === "loading" && (
@@ -86,15 +107,46 @@ export function AuthSuccess() {
             <div class="h-6 w-6 animate-spin rounded-full border-2 border-neutral-900 border-t-transparent" />
           </div>
         )}
+
+        {status === "error" && needsLogin && (
+          <div>
+            <a href="/auth/login" class="btn btn-primary">
+              Sign in to continue
+            </a>
+          </div>
+        )}
+
+        {token && status !== "loading" && (
+          <div class="space-y-3">
+            <p class="text-sm text-neutral-600">
+              Your CLI should have received this key automatically. If not,
+              copy it and paste it into your terminal:
+            </p>
+
+            <div class="term flex items-center justify-between gap-3 px-4 py-3">
+              <code class="t-cyan no-scrollbar overflow-x-auto whitespace-nowrap text-[12px]">
+                {token}
+              </code>
+              <button
+                onClick={copyToken}
+                class="btn btn-ghost-dark flex shrink-0 items-center gap-2 px-3 py-1.5 text-xs"
+              >
+                <CopyIcon class="h-3.5 w-3.5" />
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
 }
 
-
-export default function AuthSuccessPage(){
-  return <>
-  <div id="auth-success"></div>
-  <Script src="/src/ui/client/auth-success.tsx" />
-  </>
+export default function AuthSuccessPage() {
+  return (
+    <>
+      <div id="auth-success"></div>
+      <Script src="/src/ui/client/auth-success.tsx" />
+    </>
+  );
 }

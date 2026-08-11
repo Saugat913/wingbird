@@ -3,25 +3,18 @@ use std::path::Path;
 use anyhow::anyhow;
 use futures_util::StreamExt;
 use reqwest::{Client, ClientBuilder, Url, header};
-use serde::Deserialize;
 use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
     api::{
-        CreateAppRequest, CreateAppResponse, CreateReleaseRequest, ReleaseResponse, UploadRequest,
-        UploadResponse, User, WhoamiResponse,
-    },
-    storage,
+        CreateAppRequest, CreateAppResponse, CreatePatchBatchRequest, CreateReleaseRequest, PatchData, ReleaseData, UploadRequest, UploadResponse, User, WhoamiResponse,
+    }, storage,
 };
+
 
 pub struct ApiClient {
     client: Client,
     server_url: Url,
-    token: String,
-}
-
-#[derive(Deserialize)]
-struct TokenResponse {
     token: String,
 }
 
@@ -31,35 +24,51 @@ impl ApiClient {
             .user_agent("wingbird-cli/0.0.1")
             .build()?;
 
-        let resp = client
-            .get(server_url.join("/api/auth/token")?)
-            .bearer_auth(&token)
-            .send()
-            .await?;
-
-        if !resp.status().is_success() {
-            anyhow::bail!("Session expired or invalid. Please login again via 'wingbird login'.");
-        }
-
-        let token_response = resp.json::<TokenResponse>().await?;
-
-        Ok(Self {
+        let api = Self {
             client,
             server_url,
-            token: token_response.token,
-        })
+            token: token.to_string(),
+        };
+
+        api.whoami()
+            .await
+            .map_err(|_| anyhow!("Session expired or invalid. Please login again via 'wingbird login'."))?;
+
+        Ok(api)
     }
 
     pub async fn from_storage(server_url: String) -> anyhow::Result<Self> {
-        let token = storage::get_token(&server_url).unwrap_or(None);
-        let api_client = match token {
-            Some(token) => Self::new(&token, Url::parse(&server_url)?).await,
+        let token = match storage::get_token(&server_url)? {
+            Some(token) => token,
             None => anyhow::bail!("No token found. Please login again via 'wingbird login'."),
-        }?;
-        Ok(api_client)
+        };
+        Ok(Self::new(&token, Url::parse(&server_url)?).await?)
     }
-    pub fn server_url(&self) -> &str {
-        &self.server_url.as_str()
+
+    fn error_message(status: reqwest::StatusCode, body: &str, context: &str) -> String {
+        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(body) {
+            if let Some(err_msg) = json_val.get("error").and_then(|v| v.as_str()) {
+                return format!("{} ({}): {}", context, status, err_msg);
+            }
+        }
+        format!("{} ({}): {}", context, status, body)
+    }
+
+    fn ensure_ok(status: reqwest::StatusCode, body: &str, context: &str) -> anyhow::Result<()> {
+        if status.is_success() {
+            Ok(())
+        } else {
+            anyhow::bail!("{}", Self::error_message(status, body, context))
+        }
+    }
+
+    async fn handle_response<T: serde::de::DeserializeOwned>(
+        response: reqwest::Response,
+    ) -> anyhow::Result<T> {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        Self::ensure_ok(status, &body, "Request failed")?;
+        Ok(serde_json::from_str(&body)?)
     }
 
     pub async fn whoami(&self) -> anyhow::Result<User> {
@@ -69,23 +78,21 @@ impl ApiClient {
             .bearer_auth(&self.token)
             .send()
             .await?;
-        let response = response.json::<WhoamiResponse>().await?;
-        Ok(response.user)
+        let whoami: WhoamiResponse = Self::handle_response(response).await?;
+        Ok(whoami.user)
     }
 
     pub async fn logout(&self) -> anyhow::Result<()> {
         let response = self
             .client
             .post(self.server_url.join("/api/auth/sign-out")?)
-            .header("Content-Type", "application/json")
-            .body("{}")
+            .json(&serde_json::json!({}))
             .bearer_auth(&self.token)
             .send()
             .await?;
-        if !response.status().is_success() {
-            anyhow::bail!("Logout failed");
-        }
-        Ok(())
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        Self::ensure_ok(status, &body, "Logout failed")
     }
 
     async fn request_file_upload(
@@ -98,27 +105,19 @@ impl ApiClient {
     ) -> anyhow::Result<(String, String)> {
         let response = self
             .client
-            .post(self.server_url.join("/api/uploads")?)
+            .post(self.server_url.join(&format!("/api/apps/{app_id}/uploads"))?)
             .bearer_auth(&self.token)
             .json(&UploadRequest {
                 file_name: file_name.into(),
                 file_type: file_type.into(),
                 file_size,
-                app_id: app_id.into(),
                 file_hash: file_hash.into(),
             })
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            anyhow::bail!("Upload request failed ({}): {}", status, body);
-        }
-
-        let UploadResponse { key, url } = response.json().await?;
-        Ok((key, url))
+        let UploadResponse { upload_id, upload_url } = Self::handle_response(response).await?;
+        Ok((upload_id, upload_url))
     }
 
     pub async fn upload_file(
@@ -136,42 +135,83 @@ impl ApiClient {
             .and_then(|s| s.to_str())
             .ok_or_else(|| anyhow!("Invalid file name"))?;
 
-        let (key, url) = self
+        let (upload_id, upload_url) = self
             .request_file_upload(file_name, file_type, file_size, app_id, file_hash)
             .await?;
 
         let response = self
             .client
-            .put(&url)
+            .put(&upload_url)
             .header(header::CONTENT_TYPE, file_type)
             .header(header::CONTENT_LENGTH, file_size)
             .body(file)
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            anyhow::bail!("S3 upload failed ({}): {}", status, body);
-        }
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        Self::ensure_ok(status, &body, "Upload failed")?;
 
-        Ok((key, url))
+        Ok((upload_id, upload_url))
     }
 
-    pub async fn download_file(&self, file_key: &str, output_path: &str) -> anyhow::Result<()> {
+    pub async fn create_app(&self, name: &str) -> anyhow::Result<CreateAppResponse> {
         let response = self
             .client
-            .get(self.server_url.join(&format!("/api/uploads/{file_key}"))?)
+            .post(self.server_url.join("/api/apps")?)
+            .json(&CreateAppRequest {
+                name: name.to_string(),
+            })
             .bearer_auth(&self.token)
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
+        Self::handle_response(response).await
+    }
+
+    pub async fn create_release(
+        &self,
+        app_id: &str,
+        req: &CreateReleaseRequest,
+    ) -> anyhow::Result<ReleaseData> {
+        let response = self
+            .client
+            .post(
+                self.server_url
+                    .join(&format!("/api/apps/{app_id}/releases"))?,
+            )
+            .bearer_auth(&self.token)
+            .json(req)
+            .send()
+            .await?;
+
+        Self::handle_response(response).await
+    }
+
+    pub async fn download_release(
+        &self,
+        app_id: &str,
+        version: &str,
+        platform: &str,
+        channel: &str,
+        output_path: &str,
+    ) -> anyhow::Result<()> {
+        let encoded_version = urlencoding::encode(version);
+        let url = self.server_url.join(&format!(
+            "/api/apps/{app_id}/releases/{encoded_version}/download?platform={platform}&channel={channel}"
+        ))?;
+
+        let response = self
+            .client
+            .get(url)
+            .bearer_auth(&self.token)
+            .send()
+            .await?;
+
+        let status = response.status();
+        if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            anyhow::bail!("Download failed ({}): {}", status, body);
+            anyhow::bail!("{}", Self::error_message(status, &body, "Download failed"));
         }
 
         let mut output = File::create(output_path).await?;
@@ -185,63 +225,27 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn create_app(&self, name: &str) -> anyhow::Result<CreateAppResponse> {
-        let response = self
-            .client
-            .post(self.server_url.join("/api/apps")?)
-            .header("Content-Type", "application/json")
-            .json(&CreateAppRequest {
-                name: name.to_string(),
-            })
-            .bearer_auth(&self.token)
-            .send()
-            .await?;
-
-        Ok(response
-            .error_for_status()?
-            .json::<CreateAppResponse>()
-            .await?)
-    }
-
-    pub async fn mark_upload_complete(&self, key: &str) -> anyhow::Result<()> {
-        let response = self
-            .client
-            .patch(
-                self.server_url
-                    .join(&format!("/api/uploads/{key}/complete"))?,
-            )
-            .bearer_auth(&self.token)
-            .timeout(std::time::Duration::from_secs(30))
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            anyhow::bail!("Failed to complete upload ({}): {}", status, body);
-        }
-
-        Ok(())
-    }
-
-    pub async fn create_release(
+    pub async fn create_patches(
         &self,
         app_id: &str,
-        req: &CreateReleaseRequest,
-    ) -> anyhow::Result<ReleaseResponse> {
+        version: &str,
+        platform: &str,
+        channel: &str,
+        req: &CreatePatchBatchRequest,
+    ) -> anyhow::Result<Vec<PatchData>> {
+        let encoded_version = urlencoding::encode(version);
+        let url = self.server_url.join(&format!(
+            "/api/apps/{app_id}/releases/{encoded_version}/patches?platform={platform}&channel={channel}"
+        ))?;
+
         let response = self
             .client
-            .post(
-                self.server_url
-                    .join(&format!("/api/apps/{app_id}/releases"))?,
-            )
+            .post(url)
             .bearer_auth(&self.token)
             .json(req)
             .send()
-            .await?
-            .error_for_status()?;
+            .await?;
 
-        let release_response = response.json::<ReleaseResponse>().await?;
-        Ok(release_response)
+        Self::handle_response(response).await
     }
 }

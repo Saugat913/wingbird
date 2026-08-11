@@ -1,9 +1,9 @@
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UploadResponse {
-    pub url: String,
-    pub key: String,
+    pub upload_id: String,
+    pub upload_url: String,
 }
-
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,6 +11,5 @@ pub struct UploadRequest {
     pub file_name: String,
     pub file_type: String,
     pub file_size: u64,
-    pub app_id: String,
     pub file_hash: String,
 }

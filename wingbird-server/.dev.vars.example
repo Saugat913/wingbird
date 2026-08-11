@@ -1,0 +1,19 @@
+# Google OAuth Credentials
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Better Auth Configuration
+BETTER_AUTH_SECRET=your-better-auth-secret-32-chars-or-more
+BETTER_AUTH_URL=http://localhost:5173
+
+# S3 / Backblaze B2 Storage Configuration
+S3_ACCESS_KEY_ID=your-s3-access-key-id
+S3_ACCESS_KEY=your-s3-access-key-secret
+S3_BUCKET=your-bucket-name
+S3_ENDPOINT=your-s3-endpoint
+S3_REGION=your-s3-region
+S3_PRESIGNED_EXPIRE_SECONDS=900
+
+# Quota & Limits
+MAX_RELEASES_PER_APP=3
+MAX_PATCHES_PER_RELEASE=3

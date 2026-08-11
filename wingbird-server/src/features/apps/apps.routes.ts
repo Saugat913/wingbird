@@ -1,26 +1,111 @@
-import { Hono } from "hono";
-import { AppEnv } from "../../env";
-import { HttpError } from "../../middleware/error";
-import AppService from "./app.service";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import AppEnv from "../../env";
+import { AppDto, CreateAppDto } from "./apps.dto";
 import { requireAuth } from "../../middleware/auth";
+import requireAppAccess from "../../middleware/app-access";
 
-const appsRouter= new Hono<AppEnv>();
+export const appsRouter = new OpenAPIHono<AppEnv>();
 
 
-appsRouter.post("/",requireAuth,async (c)=>{
-    const { name } = await c.req.json();
-    const db = c.var.db;
+appsRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/",
+    summary: "Create app",
+    middleware: [
+      requireAuth,
+    ],
+    request: {
+      body: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: CreateAppDto,
+          },
+        },
+      },
+    },
+    responses: {
+      201: {
+        description: "App created",
+        content: {
+          "application/json": {
+            schema: AppDto,
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const body = c.req.valid("json");
     const user= c.var.user;
+    const appService = c.var.appService;
 
-    const appService= new AppService(db);
+    const newApp = await appService.create({
+      ...body,
+      userId: user.id,
+    });
+    
+    return c.json(newApp, 201);
+  },
+);
 
-    if(await appService.isAppPresent(name, user.id)){
-        throw new HttpError("App already exist", 400);
-    }
+appsRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/",
+    summary: "List apps",
+    middleware: [
+      requireAuth,
+    ],
+    responses: {
+      200: {
+        description: "Apps",
+        content: {
+          "application/json": {
+            schema: z.array(AppDto),
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const user = c.var.user;
+    const appService = c.var.appService;
+    const apps = await appService.getAll(user.id);
+    return c.json(apps, 200);
+  },
+);
 
-    const { id, name: appName } = await appService.createApp(name, user.id);
+appsRouter.openapi(
+  createRoute({
+    method: "delete",
+    path: "/{appId}",
+    summary: "Delete app",
+    middleware: [
+      requireAuth,
+      requireAppAccess(),
+    ],
+    request: {
+      params: z.object({
+        appId: z.string(),
+      }),
+    },
+    responses: {
+      204: {
+        description: "Deleted",
+      },
+      404: {
+        description: "App not found",
+      },
+    },
+  }),
+  async (c) => {
+    const { appId } = c.req.valid("param");
+    const appService = c.var.appService;
+    const app = c.var.app;
+    await appService.delete(appId, app.userId);
 
-    return c.json({ id, name: appName },201);
-});
-
-export default appsRouter;
+    return c.body(null, 204);
+  },
+);
