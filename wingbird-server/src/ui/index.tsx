@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { renderer } from './renderer'
 import LoginPage from './apps/auth/login'
-import Home from './apps/landing/waitlist-page'
+import Home from './apps/landing/page'
 import AuthSuccessPage from './apps/auth/success'
 
 const ui = new Hono()

@@ -6,19 +6,19 @@ const platforms = [
     name: "macOS",
     arch: "Apple Silicon · Intel",
     icon: <AppleIcon class="w-5 h-5 text-zinc-800" />,
-    cmd: "curl -fsSL https://github.com/Saugat913/wingbird/releases/latest/download/wingbird-darwin-arm64 | tar -xz -C /usr/local/bin",
+    cmd: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Saugat913/wingbird/releases/download/v0.0.1/wingbird-cli-installer.sh | sh",
   },
   {
     name: "Linux",
     arch: "x86_64 · aarch64",
     icon: <LinuxIcon class="w-5 h-5 text-zinc-800" />,
-    cmd: "curl -fsSL https://github.com/Saugat913/wingbird/releases/latest/download/wingbird-linux-x86_64 | tar -xz -C /usr/local/bin",
+    cmd: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Saugat913/wingbird/releases/download/v0.0.1/wingbird-cli-installer.sh | sh",
   },
   {
     name: "Windows",
     arch: "x86_64",
     icon: <WindowsIcon class="w-5 h-5 text-zinc-800" />,
-    cmd: "curl -fsSL https://github.com/Saugat913/wingbird/releases/latest/download/wingbird-windows-x86_64 | tar -xz",
+    cmd: 'powershell -ExecutionPolicy Bypass -c "irm https://github.com/Saugat913/wingbird/releases/download/v0.0.1/wingbird-cli-installer.ps1 | iex"',
   },
 ];
 
