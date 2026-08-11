@@ -16,7 +16,7 @@ Instant binary-diff patching for Flutter apps. Generate a `bsdiff` patch of `lib
 ## Components
 
 - **`wingbird-cli`** — Rust dev tool: builds the base release, extracts `libapp.so`, computes patches, uploads them.
-- **`wingbird-server`** — Cloudflare Workers + Hono API (D1, S3) with OAuth and a dashboard UI.
+- **`wingbird-server`** — Cloudflare Workers + Hono API (D1, S3) with OAuth.
 - **`wingbird-sdk`** — Flutter SDK that downloads and hot-swaps patches at runtime.
 
 ## Quick Start
