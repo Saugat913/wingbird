@@ -1,21 +1,40 @@
-```txt
-npm install
-npm run dev
-```
+# Wingbird Server
+
+Wingbird's backend: release/patch API, OAuth, and a dashboard UI, running on Cloudflare Workers + D1 with S3-compatible storage.
+
+## Local development
 
 ```txt
-npm run deploy
+bun install
+cp .dev.vars.example .dev.vars   # fill in your values
+bun run dev
 ```
 
-[For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
+`.dev.vars` / `.prod.vars` are gitignored — keep real credentials local, only commit the `.example` template with placeholders.
+
+## Database (D1)
 
 ```txt
-npm run cf-typegen
+bun run db:generate   # generate Drizzle schema
+bun run db:migrate    # apply migrations locally
 ```
 
-Pass the `CloudflareBindings` as generics when instantiation `Hono`:
+## Deploy
+
+```txt
+bun run env:push      # push .prod.vars secrets to Cloudflare
+bun run deploy
+```
+
+## Types & docs
+
+```txt
+bun run cf-typegen    # regenerate Cloudflare bindings types
+bun run dev
+```
+
+The generated OpenAPI spec and interactive docs are available under `/doc` while the dev server runs. Routers bind the Worker bindings via `AppEnv` from `src/env.ts`:
 
 ```ts
-// src/index.ts
-const app = new Hono<{ Bindings: CloudflareBindings }>()
+const app = new OpenAPIHono<AppEnv>()
 ```

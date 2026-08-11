@@ -3,6 +3,7 @@ name = "wingbird-cli"
 version = "0.1.0"
 edition = "2024"
 repository = "https://github.com/Saugat913/wingbird"
+license = "Apache-2.0"
 
 [[bin]]
 name = "wingbird"
