@@ -1,7 +1,9 @@
 use clap::{Parser, Subcommand, ValueEnum};
 
-use crate::{cli::commands::{init, login, logout, patch, release, whoami}, ui::error};
-
+use crate::{
+    cli::commands::{init, login, logout, patch, release, whoami},
+    ui::error,
+};
 
 #[derive(Debug, Parser)]
 #[command(

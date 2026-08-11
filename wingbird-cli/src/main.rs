@@ -1,14 +1,14 @@
 use crate::cli::Cli;
-mod cli;
-mod server;
 mod api;
-mod ui;
-mod storage;
-mod utils;
+mod cli;
 mod config;
+mod server;
+mod storage;
+mod ui;
+mod utils;
 
 #[tokio::main]
-async fn main()->anyhow::Result<()> {
+async fn main() -> anyhow::Result<()> {
     Cli::run().await?;
     Ok(())
 }

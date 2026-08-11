@@ -31,10 +31,15 @@ impl Server {
             signal_sender: Arc::new(Mutex::new(Some(signal_sender))),
         };
         let listener = TcpListener::bind(sock_addr).await?;
-        let router = Router::new().route("/callback", post(Self::callback_handler)).layer(tower_http::cors::CorsLayer::new()
-            .allow_origin(tower_http::cors::Any)
-            .allow_methods(tower_http::cors::Any)
-            .allow_headers(tower_http::cors::Any)).with_state(app_state);
+        let router = Router::new()
+            .route("/callback", post(Self::callback_handler))
+            .layer(
+                tower_http::cors::CorsLayer::new()
+                    .allow_origin(tower_http::cors::Any)
+                    .allow_methods(tower_http::cors::Any)
+                    .allow_headers(tower_http::cors::Any),
+            )
+            .with_state(app_state);
         Ok(Self {
             listener,
             router,
@@ -44,7 +49,7 @@ impl Server {
 
     pub async fn run(self) -> anyhow::Result<ServerHandle> {
         let (token_sender, token_receiver) = oneshot::channel();
-        let sock_addr= self.listener.local_addr()?;
+        let sock_addr = self.listener.local_addr()?;
         tokio::spawn(async move {
             axum::serve(self.listener, self.router)
                 .with_graceful_shutdown(async move {
@@ -75,7 +80,7 @@ impl Server {
 
 pub struct ServerHandle {
     token_receiver: Arc<Mutex<Option<oneshot::Receiver<String>>>>,
-    sock_addr:SocketAddr,
+    sock_addr: SocketAddr,
 }
 
 impl ServerHandle {

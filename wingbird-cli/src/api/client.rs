@@ -7,10 +7,11 @@ use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::{
     api::{
-        CreateAppRequest, CreateAppResponse, CreatePatchBatchRequest, CreateReleaseRequest, PatchData, ReleaseData, UploadRequest, UploadResponse, User, WhoamiResponse,
-    }, storage,
+        CreateAppRequest, CreateAppResponse, CreatePatchBatchRequest, CreateReleaseRequest,
+        PatchData, ReleaseData, UploadRequest, UploadResponse, User, WhoamiResponse,
+    },
+    storage,
 };
-
 
 pub struct ApiClient {
     client: Client,
@@ -30,9 +31,9 @@ impl ApiClient {
             token: token.to_string(),
         };
 
-        api.whoami()
-            .await
-            .map_err(|_| anyhow!("Session expired or invalid. Please login again via 'wingbird login'."))?;
+        api.whoami().await.map_err(|_| {
+            anyhow!("Session expired or invalid. Please login again via 'wingbird login'.")
+        })?;
 
         Ok(api)
     }
@@ -105,7 +106,10 @@ impl ApiClient {
     ) -> anyhow::Result<(String, String)> {
         let response = self
             .client
-            .post(self.server_url.join(&format!("/api/apps/{app_id}/uploads"))?)
+            .post(
+                self.server_url
+                    .join(&format!("/api/apps/{app_id}/uploads"))?,
+            )
             .bearer_auth(&self.token)
             .json(&UploadRequest {
                 file_name: file_name.into(),
@@ -116,7 +120,10 @@ impl ApiClient {
             .send()
             .await?;
 
-        let UploadResponse { upload_id, upload_url } = Self::handle_response(response).await?;
+        let UploadResponse {
+            upload_id,
+            upload_url,
+        } = Self::handle_response(response).await?;
         Ok((upload_id, upload_url))
     }
 
@@ -201,12 +208,7 @@ impl ApiClient {
             "/api/apps/{app_id}/releases/{encoded_version}/download?platform={platform}&channel={channel}"
         ))?;
 
-        let response = self
-            .client
-            .get(url)
-            .bearer_auth(&self.token)
-            .send()
-            .await?;
+        let response = self.client.get(url).bearer_auth(&self.token).send().await?;
 
         let status = response.status();
         if !status.is_success() {

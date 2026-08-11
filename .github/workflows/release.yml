@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to tag (defaults to Cargo.toml version)"
+        required: false
+        type: string
+      prerelease:
+        description: "Mark as prerelease"
+        required: false
+        default: false
+        type: boolean
+  push:
+    tags: ["v*"]
+
+jobs:
+  tag:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve version
+        id: version
+        run: |
+          VER=$(grep -m1 '^version = ' wingbird-cli/Cargo.toml | cut -d'"' -f2)
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+      - name: Verify input version
+        if: github.event.inputs.version != ''
+        run: |
+          [ "${{ github.event.inputs.version }}" = "${{ steps.version.outputs.version }}" ] || \
+            { echo "Input version ${{ github.event.inputs.version }} != Cargo.toml ${{ steps.version.outputs.version }}. Update Cargo.toml first."; exit 1; }
+      - name: Create and push tag
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+  publish:
+    if: github.event_name == 'push'
+    needs: tag
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-latest
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
+          - target: macos-x86_64
+            runner: macos-13
+          - target: macos-arm64
+            runner: macos-14
+          - target: windows-x86_64
+            runner: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: wingbird-cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: wingbird-cli
+      - name: Build
+        run: cargo build --release
+      - name: Archive
+        shell: bash
+        run: |
+          VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          [ "v$VERSION" = "${{ github.ref_name }}" ] || { echo "Tag ${{ github.ref_name }} != Cargo.toml v$VERSION"; exit 1; }
+          NAME="wingbird-$VERSION-${{ matrix.target }}"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            tar -a -cf "$NAME.zip" wingbird.exe
+            sha256sum "$NAME.zip" > "$NAME.zip.sha256"
+          else
+            tar -czf "$NAME.tar.gz" wingbird
+            sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256"
+          fi
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wingbird-${{ matrix.target }}
+          path: wingbird-cli/wingbird-*
+          if-no-files-found: error
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: wingbird-cli/wingbird-*
+          generate_release_notes: true
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}

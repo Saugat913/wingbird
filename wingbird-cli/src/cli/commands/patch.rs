@@ -9,8 +9,7 @@ use crate::{
 
 const APK_PATH: &str = "build/app/outputs/flutter-apk/app-release.apk";
 const PATCH_MIME: &str = "application/octet-stream";
-const SUPPORTED_ARCHITECTURES: &[&str] =
-    &["arm64-v8a", "armeabi-v7a", "x86_64"];
+const SUPPORTED_ARCHITECTURES: &[&str] = &["arm64-v8a", "armeabi-v7a", "x86_64"];
 
 pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let config = Config::load()?;
@@ -31,13 +30,7 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let base_apk = format!(".wingbird/base_{platform}_{version}.apk");
 
     client
-        .download_release(
-            &config.app_id,
-            &version,
-            &platform,
-            &channel,
-            &base_apk,
-        )
+        .download_release(&config.app_id, &version, &platform, &channel, &base_apk)
         .await?;
 
     let base_architectures = utils::detect_architectures(&base_apk)?;
@@ -46,8 +39,7 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let architectures = base_architectures
         .into_iter()
         .filter(|arch| {
-            SUPPORTED_ARCHITECTURES.contains(&arch.as_str())
-                && new_architectures.contains(arch)
+            SUPPORTED_ARCHITECTURES.contains(&arch.as_str()) && new_architectures.contains(arch)
         })
         .collect::<Vec<_>>();
 
@@ -75,8 +67,7 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
 
         let mut patch_bytes = Vec::new();
 
-        qbsdiff::Bsdiff::new(&base, &new)
-            .compare(io::Cursor::new(&mut patch_bytes))?;
+        qbsdiff::Bsdiff::new(&base, &new).compare(io::Cursor::new(&mut patch_bytes))?;
 
         fs::write(&patch, &patch_bytes)?;
 

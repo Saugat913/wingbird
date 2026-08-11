@@ -30,17 +30,15 @@ impl Config {
         let config = yaml_serde::to_string(&config)?;
         std::fs::write("wingbird.yaml", config)?;
         Ok(())
-    } 
+    }
 }
 
-
-#[derive(Debug,Deserialize)]
-pub struct Pubspec{
-    pub name:String,
-    pub version:String,
-    pub description:Option<String>
+#[derive(Debug, Deserialize)]
+pub struct Pubspec {
+    pub name: String,
+    pub version: String,
+    pub description: Option<String>,
 }
-
 
 impl Pubspec {
     pub fn load() -> Result<Self, anyhow::Error> {

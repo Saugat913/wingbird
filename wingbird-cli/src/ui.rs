@@ -16,11 +16,7 @@ pub fn banner() {
 }
 
 fn print(msg_type: &str, msg: &str, color: fn(&str) -> colored::ColoredString) {
-    println!(
-        "{} {}",
-        color(msg_type).bold(),
-        color(msg)
-    );
+    println!("{} {}", color(msg_type).bold(), color(msg));
 }
 
 pub fn info(msg: &str) {

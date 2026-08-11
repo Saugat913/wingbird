@@ -2,7 +2,10 @@ const SERVICE_NAME: &str = "wingbird-cli";
 const TOKEN_KEY: &str = "auth_token";
 
 fn entry(server: &str) -> anyhow::Result<keyring::Entry> {
-    Ok(keyring::Entry::new(SERVICE_NAME, &format!("{}-{}", TOKEN_KEY, server))?)
+    Ok(keyring::Entry::new(
+        SERVICE_NAME,
+        &format!("{}-{}", TOKEN_KEY, server),
+    )?)
 }
 
 pub fn save_token(server: &str, token: &str) -> anyhow::Result<()> {

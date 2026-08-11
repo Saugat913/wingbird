@@ -1,10 +1,10 @@
 mod apps;
+mod patch;
 mod release;
 mod upload;
 mod whoami;
-mod patch;
 pub use apps::{CreateAppRequest, CreateAppResponse};
-pub use upload::{UploadResponse,UploadRequest};
+pub use patch::{CreatePatchBatchRequest, CreatePatchRequest, PatchData};
+pub use release::{CreateReleaseRequest, ReleaseData};
+pub use upload::{UploadRequest, UploadResponse};
 pub use whoami::{User, WhoamiResponse};
-pub use release::{CreateReleaseRequest,ReleaseData};
-pub use patch::{CreatePatchRequest,CreatePatchBatchRequest,PatchData};
