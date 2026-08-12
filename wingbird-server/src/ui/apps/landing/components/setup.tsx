@@ -24,8 +24,8 @@ const steps = [
   {
     n: "03",
     title: "Users get it silently",
-    desc: "Your Flutter app calls wingbird.sync() at startup, downloads the patch, and applies it in milliseconds.",
-    cmd: "app:start → wingbird.sync()",
+    desc: "Your Flutter app calls wingbird.init() at startup, downloads the patch, and applies it in milliseconds.",
+    cmd: "app:start → wingbird.init()",
     out: [
       { cls: "t-cyan",  t: "[➜] Patch v1.0.5 found  ·  ~180 KB" },
       { cls: "t-amber", t: "[⧗] Applying bsdiff patch..." },
