@@ -10,7 +10,7 @@
 		{
 			"binding": "wingbird_db",
 			"database_name": "wingbird_db",
-			"database_id": "72954442-1b71-46dc-80ef-df4e1bb1cfbd",
+			"database_id": "5b78de8a-e1d3-48ed-bcde-d1351e8fe54c",
 			"migrations_dir": "./migrations"
 		}
 	],
