@@ -15,9 +15,9 @@ const SUPPORTED_ARCHITECTURES: &[&str] =
 pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     let config = Config::load()?;
     let version = Pubspec::load()?.version;
-    let client = ApiClient::from_storage(config.server_url).await?;
+    let client = ApiClient::from_storage(&config.server_url).await?;
 
-    build_release()?;
+    build_release(&config.server_url, &config.app_id)?;
 
     anyhow::ensure!(
         Path::new(APK_PATH).exists(),
@@ -120,7 +120,8 @@ pub async fn run(platform: String, channel: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn build_release() -> anyhow::Result<()> {
+fn build_release(server_url: &str, app_id: &str) -> anyhow::Result<()> {
     info("Building release APK...");
-    utils::run_command("flutter", &["build", "apk", "--release"])
+    utils::run_command("flutter", &["build", "apk", "--release",&format!("--dart-define=WINGBIRD_SERVER_URL={}", server_url),&format!("--dart-define=WINGBIRD_APP_ID={}", app_id)])?;
+    Ok(())
 }

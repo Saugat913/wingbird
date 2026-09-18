@@ -10,7 +10,7 @@ pub async fn run(server_url: String) -> anyhow::Result<()> {
     let pubspec = Pubspec::load()?; 
     info(&format!("Found Flutter project: {} v{}", pubspec.name, pubspec.version));
 
-    let client = ApiClient::from_storage(server_url.clone()).await?;
+    let client = ApiClient::from_storage(&server_url).await?;
     let result = client.create_app(&pubspec.name).await?;
     success(&format!("App created: {} ({})", result.name, result.id));
 
