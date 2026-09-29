@@ -58,7 +58,6 @@ The release and patch commands expect a Flutter Android project and use Flutter'
 
 - [wingbird-sdk](https://github.com/Saugat913/wingbird-sdk) — Flutter plugin and native patch application layer
 - [wingbird-server](https://github.com/Saugat913/wingbird-server) — API, persistence, authentication, and artifact storage
-- [wingbird-backup](https://github.com/Saugat913/wingbird-backup) — original consolidated repository
 
 ## License
 
